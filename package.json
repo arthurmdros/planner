@@ -1,0 +1,12 @@
+{
+  "name": "planner-concurso",
+  "version": "1.0.0",
+  "description": "Planner Premium para Concurso Público",
+  "main": "planner.html",
+  "scripts": {
+    "start": "python -m http.server 8000"
+  },
+  "keywords": ["planner", "concurso", "estudo", "organizacao"],
+  "author": "",
+  "license": "MIT"
+}
