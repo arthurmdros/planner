@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planner Premium para Concurso Público</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8f9fa;
+            color: #2c3e50;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        
+        .page {
+            width: 100%;
+            min-height: 100vh;
+            background: white;
+            position: relative;
+            padding: 20px;
+            display: none;
+            box-sizing: border-box;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        /* Menu Superior Moderno */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            padding: 0;
+        }
+        
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 20px;
+        }
+        
+        .nav-brand {
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .nav-brand::before {
+            content: '📚';
+            font-size: 24px;
+        }
+        
+        .nav-menu {
+            display: flex;
+            gap: 5px;
+            background: rgba(255,255,255,0.1);
+            padding: 5px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-item {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            transform: translateY(-1px);
+        }
+        
+        .nav-item.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .page-content {
+            margin-top: 80px;
+            padding: 20px;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header p {
+            font-size: 16px;
+            color: #6c757d;
+            font-weight: 400;
+        }
+        
+        .footer {
+            position: relative;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
+            padding-top: 20px;
+            margin-top: 40px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        /* Cores das disciplinas */
+        .portugues { background-color: #3498db; }
+        .direito-penal { background-color: #e74c3c; }
+        .lep { background-color: #27ae60; }
+        .direito-constitucional { background-color: #9b59b6; }
+        .direito-administrativo { background-color: #f39c12; }
+        .administracao-publica { background-color: #f1c40f; }
+        .direitos-humanos { background-color: #16a085; }
+        .legislacao-extravagante { background-color: #e91e63; }
+        .legislacao-pprn { background-color: #8e44ad; }
+        .transito { background-color: #95a5a6; }
+        .treino-fisico { background-color: #2ecc71; }
+        
+        /* Tabelas */
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            font-size: 14px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        
+        .schedule-table th,
+        .schedule-table td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: left;
+            vertical-align: top;
+        }
+        
+        .schedule-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .schedule-table td {
+            min-height: 15mm;
+        }
+        
+        .checkbox {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #007bff;
+            margin-right: 8px;
+            vertical-align: middle;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+        
+        .checkbox:hover {
+            background: #e3f2fd;
+        }
+        
+        .checkbox.checked {
+            background: #007bff;
+            position: relative;
+        }
+        
+        .checkbox.checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .input-field {
+            border: 2px dashed #ced4da;
+            background: transparent;
+            padding: 8px 12px;
+            min-width: 100px;
+            display: inline-block;
+            min-height: 20px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .input-field:hover {
+            background: #f8f9fa;
+            border-color: #007bff;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            background: white;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        
+        .input-field.filled {
+            background: #e3f2fd;
+            border-color: #007bff;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            border-radius: 5mm;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .tracker-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .tracker-box {
+            aspect-ratio: 1;
+            border: 3px solid #dee2e6;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #6c757d;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            background: white;
+        }
+        
+        .tracker-box:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
+        }
+        
+        .tracker-box.completed {
+            background: #28a745;
+            border-color: #28a745;
+            color: white;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 30px 0 20px 0;
+            border-left: 5px solid #007bff;
+            padding-left: 15px;
+            background: linear-gradient(90deg, #e3f2fd 0%, transparent 100%);
+            padding: 15px 20px;
+            border-radius: 0 10px 10px 0;
+        }
+        
+        .motivational-quote {
+            text-align: center;
+            font-style: italic;
+            color: #007bff;
+            font-size: 18px;
+            margin: 40px 0;
+            padding: 30px;
+            border-top: 2px solid #e9ecef;
+            border-bottom: 2px solid #e9ecef;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        
+        .performance-bars {
+            display: flex;
+            align-items: flex-end;
+            height: 200px;
+            gap: 10px;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+        
+        .performance-bar {
+            flex: 1;
+            background: linear-gradient(180deg, #007bff 0%, #0056b3 100%);
+            border-radius: 10px 10px 0 0;
+            min-height: 20px;
+            position: relative;
+            transition: all 0.3s ease;
+            box-shadow: 0 -2px 10px rgba(0,123,255,0.3);
+        }
+        
+        .performance-bar:hover {
+            opacity: 0.8;
+        }
+        
+        .performance-label {
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%) rotate(-45deg);
+            font-size: 10px;
+            white-space: nowrap;
+            transform-origin: center;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        @media print {
+            .top-nav {
+                display: none;
+            }
+            
+            .page-content {
+                margin-top: 0;
+            }
+            
+            .page {
+                width: 210mm;
+                min-height: 297mm;
+                margin: 0 auto;
+                padding: 20mm;
+                box-shadow: none;
+            }
+            
+            .tracker-box:hover {
+                border-color: #dee2e6;
+                background: white;
+            }
+            
+            .performance-bar:hover {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Menu Superior Moderno -->
+    <nav class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Planner Premium</div>
+            <div class="nav-menu">
+                <button class="nav-item active" data-page="0">Semana</button>
+                <button class="nav-item" data-page="1">Progresso</button>
+                <button class="nav-item" data-page="2">Revisões</button>
+                <button class="nav-item" data-page="3">Controle</button>
+                <button class="nav-item" data-page="4">Simulados</button>
+                <button class="nav-item" data-page="5">Erros</button>
+                <button class="nav-item" data-page="6">Desempenho</button>
+                <button class="nav-item" data-page="7">Meta</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Página 1: Cronograma Semanal -->
+    <div class="page active" id="page-0">
+        <div class="page-content">
+            <div class="header">
+                <h1>CRONOGRAMA SEMANAL</h1>
+                <p>Organize seus estudos diários</p>
+            </div>
+        
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Horário</th>
+                    <th style="width: 17%;">Segunda</th>
+                    <th style="width: 17%;">Terça</th>
+                    <th style="width: 17%;">Quarta</th>
+                    <th style="width: 17%;">Quinta</th>
+                    <th style="width: 17%;">Sexta</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>08:00 – 09:15</td>
+                    <td class="portugues" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Português</strong><br>
+                        Teoria + 35 questões
+                    </td>
+                    <td class="direito-constitucional" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Constitucional</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="portugues" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Português</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="lep" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>LEP</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="direito-constitucional" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Constitucional</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                </tr>
+                <tr>
+                    <td>09:15 – 10:30</td>
+                    <td class="portugues" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Português</strong><br>
+                        Teoria + 35 questões
+                    </td>
+                    <td class="direito-constitucional" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Constitucional</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="portugues" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Português</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="lep" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>LEP</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="direito-constitucional" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Constitucional</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                </tr>
+                <tr>
+                    <td>10:30 – 10:45</td>
+                    <td colspan="5" style="background: #f8f9fa; text-align: center; font-weight: 600;">PAUSA</td>
+                </tr>
+                <tr>
+                    <td>10:45 – 12:00</td>
+                    <td class="direito-penal" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Penal</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="direito-administrativo" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Administrativo</strong><br>
+                        Teoria + 25 questões
+                    </td>
+                    <td class="direito-penal" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Penal</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="direitos-humanos" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direitos Humanos</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                    <td class="direito-administrativo" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Administrativo</strong><br>
+                        Teoria + 25 questões
+                    </td>
+                </tr>
+                <tr>
+                    <td>12:00 – 13:15</td>
+                    <td colspan="5" style="background: #f8f9fa; text-align: center; font-weight: 600;">ALMOÇO</td>
+                </tr>
+                <tr>
+                    <td>13:15 – 14:30</td>
+                    <td class="direito-penal" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Penal</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="direito-administrativo" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Administrativo</strong><br>
+                        Teoria + 25 questões
+                    </td>
+                    <td class="direito-penal" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Penal</strong><br>
+                        Teoria + 30 questões
+                    </td>
+                    <td class="direitos-humanos" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direitos Humanos</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                    <td class="direito-administrativo" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Direito Administrativo</strong><br>
+                        Teoria + 25 questões
+                    </td>
+                </tr>
+                <tr>
+                    <td>14:30 – 15:30</td>
+                    <td colspan="5" class="treino-fisico" style="color: white; text-align: center; font-weight: 600;">TREINO FÍSICO</td>
+                </tr>
+                <tr>
+                    <td>15:45 – 17:00</td>
+                    <td class="lep" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>LEP</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                    <td class="administracao-publica" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Administração Pública</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                    <td class="legislacao-extravagante" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Legislação Extravagante</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                    <td class="legislacao-pprn" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Legislação PPRN</strong><br>
+                        Teoria + 15 questões
+                    </td>
+                    <td class="transito" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Trânsito DETRAN</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                </tr>
+                <tr>
+                    <td>17:00 – 18:15</td>
+                    <td class="lep" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>LEP</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                    <td class="administracao-publica" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Administração Pública</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                    <td class="legislacao-extravagante" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Legislação Extravagante</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                    <td class="legislacao-pprn" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Legislação PPRN</strong><br>
+                        Teoria + 15 questões
+                    </td>
+                    <td class="transito" style="color: white; padding: 2mm;">
+                        <span class="checkbox"></span>
+                        <strong>Trânsito DETRAN</strong><br>
+                        Teoria + 20 questões
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        
+            <div class="footer">
+                Planner Premium para Concurso Público • Página 1
+            </div>
+        </div>
+    </div>
+    
+    <!-- Página 2: Progresso Semanal de Questões -->
+    <div class="page" id="page-1">
+        <div class="page-content">
+            <div class="header">
+                <h1>PROGRESSO SEMANAL DE QUESTÕES</h1>
+                <p>Meta: 600 questões</p>
+            </div>
+        
+        <div class="section-title">Meta semanal: 600 questões</div>
+        
+        <div class="section-title">Registro diário:</div>
+        <table style="width: 100%; margin-bottom: 15mm;">
+            <tr>
+                <td style="width: 20%;"><strong>Segunda</strong> — <span class="input-field"></span></td>
+                <td style="width: 20%;"><strong>Terça</strong> — <span class="input-field"></span></td>
+                <td style="width: 20%;"><strong>Quarta</strong> — <span class="input-field"></span></td>
+            </tr>
+            <tr style="height: 5mm;"></tr>
+            <tr>
+                <td style="width: 20%;"><strong>Quinta</strong> — <span class="input-field"></span></td>
+                <td style="width: 20%;"><strong>Sexta</strong> — <span class="input-field"></span></td>
+                <td style="width: 20%;"><strong>Sábado</strong> — <span class="input-field"></span></td>
+            </tr>
+            <tr style="height: 5mm;"></tr>
+            <tr>
+                <td style="width: 20%;"><strong>Domingo</strong> — <span class="input-field"></span></td>
+                <td colspan="2"></td>
+            </tr>
+        </table>
+        
+        <div style="border-top: 2px solid #007bff; margin: 10mm 0;"></div>
+        
+        <div style="display: flex; align-items: center; margin: 10mm 0;">
+            <strong style="font-size: 12pt;">Total da semana:</strong>
+            <span class="input-field" style="margin-left: 5mm; min-width: 40mm;"></span>
+            <strong style="margin-left: 5mm;">/ 600 questões</strong>
+        </div>
+        
+        <div class="section-title">Barra de progresso</div>
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        
+        <div class="section-title">Tracker visual de questões</div>
+        <p style="margin-bottom: 10mm; color: #6c757d;">Cada quadrado = 50 questões resolvidas</p>
+        
+        <div class="tracker-grid">
+            <div class="tracker-box">50</div>
+            <div class="tracker-box">100</div>
+            <div class="tracker-box">150</div>
+            <div class="tracker-box">200</div>
+            <div class="tracker-box">250</div>
+            <div class="tracker-box">300</div>
+            <div class="tracker-box">350</div>
+            <div class="tracker-box">400</div>
+            <div class="tracker-box">450</div>
+            <div class="tracker-box">500</div>
+            <div class="tracker-box">550</div>
+            <div class="tracker-box">600</div>
+        </div>
+        
+            <div class="footer">
+                Planner Premium para Concurso Público • Página 2
+            </div>
+        </div>
+    </div>
+    
+    <!-- Página 3: Sistema de Revisão Inteligente -->
+    <div class="page" id="page-2">
+        <div class="page-content">
+            <div class="header">
+                <h1>SISTEMA DE REVISÃO INTELIGENTE</h1>
+                <p>Fixe o conteúdo no longo prazo</p>
+            </div>
+        
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th style="width: 25%;">Assunto estudado</th>
+                    <th style="width: 15%;">Data de estudo</th>
+                    <th style="width: 20%;">Revisão 24h <span class="checkbox"></span></th>
+                    <th style="width: 20%;">Revisão 7 dias <span class="checkbox"></span></th>
+                    <th style="width: 20%;">Revisão 30 dias <span class="checkbox"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td><td><span class="checkbox"></span></td></tr>
+            </tbody>
+        </table>
+        
+        <div style="margin-top: 15mm; padding: 5mm; background: #f8f9fa; border-left: 3px solid #007bff; font-style: italic; color: #6c757d;">
+            Este sistema baseia-se no método de repetição espaçada para otimizar a memorização.
+        </div>
+        
+            <div class="footer">
+                Planner Premium para Concurso Público • Página 3
+            </div>
+        </div>
+    </div>
+    
+    <!-- Página 4: Controle Semanal de Estudos -->
+    <div class="page" id="page-3">
+        <div class="page-content">
+            <div class="header">
+                <h1>CONTROLE SEMANAL DE ESTUDOS</h1>
+                <p>Acompanhe seu desempenho diário</p>
+            </div>
+        
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Dia</th>
+                    <th style="width: 20%;">Horas estudadas</th>
+                    <th style="width: 20%;">Questões resolvidas</th>
+                    <th style="width: 25%;">Disciplinas estudadas</th>
+                    <th style="width: 20%;">Observações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Segunda</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><strong>Terça</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><strong>Quarta</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><strong>Quinta</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><strong>Sexta</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><strong>Sábado</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><strong>Domingo</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="section-title">Resumo semanal</div>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 3mm; border: 1px solid #dee2e6;"><strong>Total de horas:</strong> <span class="input-field"></span></td>
+                <td style="padding: 3mm; border: 1px solid #dee2e6;"><strong>Total de questões:</strong> <span class="input-field"></span></td>
+            </tr>
+            <tr>
+                <td style="padding: 3mm; border: 1px solid #dee2e6;"><strong>Média diária:</strong> <span class="input-field"></span></td>
+                <td style="padding: 3mm; border: 1px solid #dee2e6;"><strong>Disciplinas mais estudadas:</strong> <span class="input-field"></span></td>
+            </tr>
+        </table>
+        
+            <div class="footer">
+                Planner Premium para Concurso Público • Página 4
+            </div>
+        </div>
+    </div>
+    
+    <!-- Página 5: Controle de Simulados -->
+    <div class="page" id="page-4">
+        <div class="page-content">
+            <div class="header">
+                <h1>CONTROLE DE SIMULADOS</h1>
+                <p>Registre seu progresso nos simulados</p>
+            </div>
+        
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th style="width: 20%;">Simulado</th>
+                    <th style="width: 15%;">Data</th>
+                    <th style="width: 15%;">Pontuação</th>
+                    <th style="width: 15%;">Nº acertos</th>
+                    <th style="width: 35%;">Principais erros</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td></tr>
+            </tbody>
+        </table>
+        
+        <div class="section-title">Estatísticas dos Simulados</div>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 3mm; border: 1px solid #dee2e6;"><strong>Média de pontuação:</strong> <span class="input-field"></span></td>
+                <td style="padding: 3mm; border: 1px solid #dee2e6;"><strong>Maior pontuação:</strong> <span class="input-field"></span></td>
+            </tr>
+            <tr>
+                <td style="padding: 3mm; border: 1px solid #dee2e6;"><strong>Total de simulados:</strong> <span class="input-field"></span></td>
+                <td style="padding: 3mm; border: 1px solid #dee2e6;"><strong>Taxa de acerto média:</strong> <span class="input-field"></span></td>
+            </tr>
+        </table>
+        
+            <div class="footer">
+                Planner Premium para Concurso Público • Página 5
+            </div>
+        </div>
+    </div>
+    
+    <!-- Página 6: Caderno de Erros -->
+    <div class="page" id="page-5">
+        <div class="page-content">
+            <div class="header">
+                <h1>CADERNO DE ERROS</h1>
+                <p>Aprenda com seus erros e não os repita</p>
+            </div>
+        
+        <table class="schedule-table" style="font-size: 9pt;">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Disciplina</th>
+                    <th style="width: 15%;">Questão errada</th>
+                    <th style="width: 25%;">Motivo do erro</th>
+                    <th style="width: 30%;">Correção</th>
+                    <th style="width: 15%;">Revisado <span class="checkbox"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+                <tr><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="input-field"></span></td><td><span class="checkbox"></span></td></tr>
+            </tbody>
+        </table>
+        
+            <div class="footer">
+                Planner Premium para Concurso Público • Página 6
+            </div>
+        </div>
+    </div>
+    
+    <!-- Página 7: Desempenho por Disciplina -->
+    <div class="page" id="page-6">
+        <div class="page-content">
+            <div class="header">
+                <h1>DESEMPENHO POR DISCIPLINA</h1>
+                <p>Acompanhe sua performance em cada área</p>
+            </div>
+        
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th style="width: 25%;">Disciplina</th>
+                    <th style="width: 25%;">Questões feitas</th>
+                    <th style="width: 25%;">Questões certas</th>
+                    <th style="width: 25%;">Taxa de acerto (%)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #3498db; margin-right: 2mm;"></span><strong>Português</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #e74c3c; margin-right: 2mm;"></span><strong>Direito Penal</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #27ae60; margin-right: 2mm;"></span><strong>LEP</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #9b59b6; margin-right: 2mm;"></span><strong>Direito Constitucional</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #f39c12; margin-right: 2mm;"></span><strong>Direito Administrativo</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #f1c40f; margin-right: 2mm;"></span><strong>Administração Pública</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #16a085; margin-right: 2mm;"></span><strong>Direitos Humanos</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #e91e63; margin-right: 2mm;"></span><strong>Legislação Extravagante</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #8e44ad; margin-right: 2mm;"></span><strong>Legislação PPRN</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+                <tr>
+                    <td><span style="display: inline-block; width: 4mm; height: 4mm; background: #95a5a6; margin-right: 2mm;"></span><strong>Trânsito DETRAN</strong></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                    <td><span class="input-field"></span></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="section-title">Gráfico de Desempenho</div>
+        <div class="performance-bars">
+            <div class="performance-bar portugues" style="height: 70%;">
+                <span class="performance-label">Português</span>
+            </div>
+            <div class="performance-bar direito-penal" style="height: 85%;">
+                <span class="performance-label">Direito Penal</span>
+            </div>
+            <div class="performance-bar lep" style="height: 60%;">
+                <span class="performance-label">LEP</span>
+            </div>
+            <div class="performance-bar direito-constitucional" style="height: 75%;">
+                <span class="performance-label">Dir. Const.</span>
+            </div>
+            <div class="performance-bar direito-administrativo" style="height: 80%;">
+                <span class="performance-label">Dir. Admin.</span>
+            </div>
+            <div class="performance-bar administracao-publica" style="height: 65%;">
+                <span class="performance-label">Admin. Pub.</span>
+            </div>
+            <div class="performance-bar direitos-humanos" style="height: 90%;">
+                <span class="performance-label">Dir. Humanos</span>
+            </div>
+            <div class="performance-bar legislacao-extravagante" style="height: 55%;">
+                <span class="performance-label">Leg. Extra.</span>
+            </div>
+            <div class="performance-bar legislacao-pprn" style="height: 70%;">
+                <span class="performance-label">Leg. PPRN</span>
+            </div>
+            <div class="performance-bar transito" style="height: 95%;">
+                <span class="performance-label">Trânsito</span>
+            </div>
+        </div>
+        
+            <div class="footer">
+                Planner Premium para Concurso Público • Página 7
+            </div>
+        </div>
+    </div>
+    
+    <!-- Página 8: Meta de Aprovação -->
+    <div class="page" id="page-7">
+        <div class="page-content">
+            <div class="header">
+                <h1>META DE APROVAÇÃO</h1>
+                <p>Visualize seu objetivo e mantenha-se motivado</p>
+            </div>
+        
+        <div style="margin-bottom: 30px;">
+            <div class="section-title">Cargo desejado:</div>
+            <div class="input-field" contenteditable="true" style="width: 100%; min-height: 50px; padding: 15px; border: 2px solid #007bff; border-radius: 10px; background: white; font-size: 16px;" placeholder="Digite o cargo que você deseja conquistar..."></div>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+            <div class="section-title">Data da prova:</div>
+            <div class="input-field" contenteditable="true" style="width: 100%; min-height: 50px; padding: 15px; border: 2px solid #007bff; border-radius: 10px; background: white; font-size: 16px;" placeholder="DD/MM/AAAA"></div>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+            <div class="section-title">Motivo para aprovação:</div>
+            <div class="input-field" contenteditable="true" style="width: 100%; min-height: 120px; padding: 15px; border: 2px solid #007bff; border-radius: 10px; background: white; font-size: 16px;" placeholder="Seus motivos pessoais para querer esta aprovação..."></div>
+        </div>
+        
+        <div style="margin-bottom: 40px;">
+            <div class="section-title">Plano de estudo até a prova:</div>
+            <div class="input-field" contenteditable="true" style="width: 100%; min-height: 200px; padding: 15px; border: 2px solid #007bff; border-radius: 10px; background: white; font-size: 16px;" placeholder="Seu plano detalhado de estudos..."></div>
+        </div>
+        
+        <div class="motivational-quote">
+            "O sucesso é a soma de pequenos esforços repetidos dia após dia."<br>
+            <span style="font-size: 10pt;">— Robert Collier</span>
+        </div>
+        
+            <div class="footer">
+                Planner Premium para Concurso Público • Página 8
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Sistema de Persistência de Dados
+        class PlannerStorage {
+            constructor() {
+                this.storageKey = 'planner_concurso_data';
+                this.data = this.loadData();
+            }
+            
+            loadData() {
+                const stored = localStorage.getItem(this.storageKey);
+                return stored ? JSON.parse(stored) : {};
+            }
+            
+            saveData() {
+                localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+            }
+            
+            set(key, value) {
+                this.data[key] = value;
+                this.saveData();
+            }
+            
+            get(key) {
+                return this.data[key];
+            }
+            
+            remove(key) {
+                delete this.data[key];
+                this.saveData();
+            }
+        }
+        
+        // Sistema de Navegação
+        class NavigationManager {
+            constructor() {
+                this.pages = document.querySelectorAll('.page');
+                this.navItems = document.querySelectorAll('.nav-item');
+                this.currentPage = 0;
+                this.init();
+            }
+            
+            init() {
+                this.navItems.forEach((item, index) => {
+                    item.addEventListener('click', () => this.goToPage(index));
+                });
+                
+                // Mostrar primeira página
+                this.goToPage(0);
+            }
+            
+            goToPage(pageIndex) {
+                // Validar índice
+                if (pageIndex < 0 || pageIndex >= this.pages.length) {
+                    console.error('Índice de página inválido:', pageIndex);
+                    return;
+                }
+                
+                // Esconder todas as páginas
+                this.pages.forEach(page => page.classList.remove('active'));
+                this.navItems.forEach(item => item.classList.remove('active'));
+                
+                // Mostrar página selecionada
+                const targetPage = this.pages[pageIndex];
+                const targetNavItem = this.navItems[pageIndex];
+                
+                if (targetPage && targetNavItem) {
+                    targetPage.classList.add('active');
+                    targetNavItem.classList.add('active');
+                    this.currentPage = pageIndex;
+                    
+                    // Salvar página atual
+                    storage.set('currentPage', pageIndex);
+                    
+                    // Scroll para topo
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    
+                    console.log('Navegou para página:', pageIndex);
+                } else {
+                    console.error('Página ou item de navegação não encontrado:', pageIndex);
+                }
+            }
+        }
+        
+        // Sistema de Campos Editáveis
+        class EditableFields {
+            constructor() {
+                this.init();
+            }
+            
+            init() {
+                // Transformar todos os campos editáveis
+                document.querySelectorAll('.input-field[contenteditable="true"]').forEach((field, index) => {
+                    // Gerar ID único se não tiver
+                    if (!field.dataset.fieldId) {
+                        field.dataset.fieldId = `field_${index}`;
+                    }
+                    
+                    // Configurar placeholder
+                    this.setupPlaceholder(field);
+                    
+                    // Carregar dados salvos
+                    const savedValue = storage.get(field.dataset.fieldId);
+                    if (savedValue) {
+                        field.textContent = savedValue;
+                        field.classList.add('filled');
+                    }
+                    
+                    // Eventos
+                    field.addEventListener('input', () => this.handleInput(field));
+                    field.addEventListener('focus', () => this.handleFocus(field));
+                    field.addEventListener('blur', () => this.handleBlur(field));
+                });
+                
+                // Transformar outros campos input-field
+                document.querySelectorAll('.input-field:not([contenteditable="true"])').forEach((field, index) => {
+                    field.contentEditable = true;
+                    field.dataset.fieldId = `field_${Date.now()}_${index}`;
+                    
+                    // Carregar dados salvos
+                    const savedValue = storage.get(field.dataset.fieldId);
+                    if (savedValue) {
+                        field.textContent = savedValue;
+                        field.classList.add('filled');
+                    }
+                    
+                    // Eventos
+                    field.addEventListener('input', () => this.handleInput(field));
+                    field.addEventListener('focus', () => field.classList.add('focused'));
+                    field.addEventListener('blur', () => field.classList.remove('focused'));
+                });
+                
+                // Transformar checkboxes
+                document.querySelectorAll('.checkbox').forEach((checkbox, index) => {
+                    checkbox.dataset.checkboxId = `checkbox_${index}`;
+                    
+                    // Carregar estado salvo
+                    const isChecked = storage.get(checkbox.dataset.checkboxId);
+                    if (isChecked) {
+                        checkbox.classList.add('checked');
+                    }
+                    
+                    checkbox.addEventListener('click', () => this.toggleCheckbox(checkbox));
+                });
+            }
+            
+            setupPlaceholder(field) {
+                const placeholder = field.getAttribute('placeholder');
+                if (placeholder && !field.textContent.trim()) {
+                    field.style.color = '#6c757d';
+                    field.textContent = placeholder;
+                }
+            }
+            
+            handleFocus(field) {
+                const placeholder = field.getAttribute('placeholder');
+                if (field.textContent.trim() === placeholder) {
+                    field.textContent = '';
+                    field.style.color = '#2c3e50';
+                }
+                field.classList.add('focused');
+            }
+            
+            handleBlur(field) {
+                const placeholder = field.getAttribute('placeholder');
+                if (!field.textContent.trim()) {
+                    this.setupPlaceholder(field);
+                }
+                field.classList.remove('focused');
+            }
+            
+            handleInput(field) {
+                const placeholder = field.getAttribute('placeholder');
+                let value = field.textContent.trim();
+                
+                // Remover placeholder se for o valor atual
+                if (value === placeholder) {
+                    value = '';
+                }
+                
+                storage.set(field.dataset.fieldId, value);
+                
+                if (value) {
+                    field.classList.add('filled');
+                    field.style.color = '#2c3e50';
+                } else {
+                    field.classList.remove('filled');
+                    if (placeholder) {
+                        field.style.color = '#6c757d';
+                    }
+                }
+                
+                // Atualizar progresso se necessário
+                this.updateProgress();
+            }
+            
+            toggleCheckbox(checkbox) {
+                checkbox.classList.toggle('checked');
+                const isChecked = checkbox.classList.contains('checked');
+                storage.set(checkbox.dataset.checkboxId, isChecked);
+            }
+            
+            updateProgress() {
+                // Atualizar tracker de questões
+                const trackerBoxes = document.querySelectorAll('.tracker-box');
+                let completedCount = 0;
+                
+                trackerBoxes.forEach((box, index) => {
+                    const isCompleted = storage.get(`tracker_${index}`);
+                    if (isCompleted) {
+                        box.classList.add('completed');
+                        completedCount++;
+                    } else {
+                        box.classList.remove('completed');
+                    }
+                });
+                
+                // Atualizar barra de progresso
+                const progressFill = document.querySelector('.progress-fill');
+                if (progressFill) {
+                    const percentage = Math.min((completedCount * 50 / 600) * 100, 100);
+                    progressFill.style.width = percentage + '%';
+                    storage.set('progressPercentage', percentage);
+                }
+            }
+        }
+        
+        // Sistema de Tracker Interativo
+        class TrackerManager {
+            constructor() {
+                this.init();
+            }
+            
+            init() {
+                const trackerBoxes = document.querySelectorAll('.tracker-box');
+                trackerBoxes.forEach((box, index) => {
+                    box.dataset.trackerId = `tracker_${index}`;
+                    
+                    // Carregar estado salvo
+                    const isCompleted = storage.get(box.dataset.trackerId);
+                    if (isCompleted) {
+                        box.classList.add('completed');
+                    }
+                    
+                    box.addEventListener('click', () => this.toggleTracker(box));
+                });
+            }
+            
+            toggleTracker(box) {
+                box.classList.toggle('completed');
+                const isCompleted = box.classList.contains('completed');
+                storage.set(box.dataset.trackerId, isCompleted);
+                
+                // Atualizar progresso
+                editableFields.updateProgress();
+            }
+        }
+        
+        // Sistema de Exportação/Importação
+        class DataManager {
+            constructor() {
+                this.init();
+            }
+            
+            init() {
+                // Adicionar botões de controle
+                this.addControlButtons();
+            }
+            
+            addControlButtons() {
+                const controlsHTML = `
+                    <div style="position: fixed; top: 90px; left: 20px; z-index: 1000; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border: 1px solid #e9ecef;">
+                        <div style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 10px;">Controle de Dados</div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <button onclick="dataManager.exportData()" style="padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.3s ease;">📥 Exportar Dados</button>
+                            <button onclick="dataManager.importData()" style="padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.3s ease;">📤 Importar Dados</button>
+                            <button onclick="dataManager.clearData()" style="padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.3s ease;">🗑️ Limpar Dados</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('afterbegin', controlsHTML);
+            }
+            
+            exportData() {
+                const data = storage.data;
+                const dataStr = JSON.stringify(data, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `planner_concurso_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                
+                URL.revokeObjectURL(url);
+            }
+            
+            importData() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = (event) => {
+                        try {
+                            const importedData = JSON.parse(event.target.result);
+                            storage.data = importedData;
+                            storage.saveData();
+                            
+                            // Recarregar página para aplicar dados
+                            location.reload();
+                        } catch (error) {
+                            alert('Erro ao importar arquivo. Verifique se é um arquivo válido.');
+                        }
+                    };
+                    
+                    reader.readAsText(file);
+                };
+                
+                input.click();
+            }
+            
+            clearData() {
+                if (confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.')) {
+                    localStorage.removeItem(storage.storageKey);
+                    location.reload();
+                }
+            }
+        }
+        
+        // Inicialização
+        let storage, navigation, editableFields, tracker, dataManager;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar sistemas
+            storage = new PlannerStorage();
+            navigation = new NavigationManager();
+            editableFields = new EditableFields();
+            tracker = new TrackerManager();
+            dataManager = new DataManager();
+            
+            // Restaurar página atual
+            const savedPage = storage.get('currentPage');
+            if (savedPage !== null && savedPage >= 0 && savedPage < navigation.pages.length) {
+                navigation.goToPage(savedPage);
+            }
+            
+            // Restaurar progresso
+            editableFields.updateProgress();
+            
+            // Performance bars animation
+            const performanceBars = document.querySelectorAll('.performance-bar');
+            performanceBars.forEach(bar => {
+                bar.addEventListener('mouseenter', function() {
+                    const height = this.style.height;
+                    this.style.height = '95%';
+                    setTimeout(() => {
+                        this.style.height = height;
+                    }, 300);
+                });
+            });
+            
+            // Adicionar efeitos hover nos botões de controle
+            const controlButtons = document.querySelectorAll('button[onclick*="dataManager"]');
+            controlButtons.forEach(button => {
+                button.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-2px)';
+                    this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
+                });
+                button.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = 'none';
+                });
+            });
+            
+            console.log('🚀 Planner Digital Premium inicializado com sucesso!');
+            console.log('📊 Páginas carregadas:', navigation.pages.length);
+            console.log('💾 Sistema de persistência ativo');
+        });
+    </script>
+</body>
+</html>
