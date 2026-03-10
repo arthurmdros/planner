@@ -387,12 +387,33 @@
             }
         });
         
+        // Validação de e-mail
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+        
+        // Validação de senha
+        function validatePassword(password) {
+            return password.length >= 6;
+        }
+        
         // Login
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
+            
+            if (!validateEmail(email)) {
+                showError('Por favor, informe um email válido');
+                return;
+            }
+            
+            if (!validatePassword(password)) {
+                showError('A senha deve ter pelo menos 6 caracteres');
+                return;
+            }
             
             showLoading();
             hideMessages();
@@ -435,7 +456,17 @@
             const password = document.getElementById('registerPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
             
-            if (password.length < 6) {
+            if (!name || name.trim().length < 3) {
+                showError('O nome deve ter pelo menos 3 caracteres');
+                return;
+            }
+            
+            if (!validateEmail(email)) {
+                showError('Por favor, informe um email válido');
+                return;
+            }
+            
+            if (!validatePassword(password)) {
                 showError('A senha deve ter pelo menos 6 caracteres');
                 return;
             }
@@ -488,6 +519,11 @@
                 return;
             }
             
+            if (!validateEmail(email)) {
+                showError('Por favor, informe um email válido');
+                return;
+            }
+            
             showLoading();
             hideMessages();
             
@@ -504,6 +540,9 @@
                 
                 if (response.ok) {
                     showSuccess('Link de recuperação enviado! Verifique seu email.');
+                    if (data.debug) {
+                        console.log('Link de debug (desenvolvimento):', data.debug);
+                    }
                     setTimeout(() => {
                         backToLogin();
                     }, 3000);
