@@ -6,11 +6,7 @@
       "use": "@vercel/node"
     },
     {
-      "src": "index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "auth.html",
+      "src": "{index.html,auth.html}",
       "use": "@vercel/static"
     }
   ],
@@ -24,8 +20,8 @@
       "dest": "/auth.html"
     },
     {
-      "src": "/",
-      "dest": "/index.html"
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ],
   "env": {

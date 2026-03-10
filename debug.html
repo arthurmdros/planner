@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug API - Planner</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            color: #6c757d;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Debug API - Planner Premium</h1>
+    
+    <div class="container">
+        <h2>1. Health Check</h2>
+        <button class="btn" onclick="testHealth()">Testar Health Check</button>
+        <div id="healthResult" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>2. Registrar Usuário</h2>
+        <div class="form-group">
+            <input type="text" id="debugName" placeholder="Nome" value="Debug User">
+        </div>
+        <div class="form-group">
+            <input type="email" id="debugEmail" placeholder="Email" value="debug@teste.com">
+        </div>
+        <div class="form-group">
+            <input type="password" id="debugPassword" placeholder="Senha" value="123456">
+        </div>
+        <button class="btn" onclick="testRegister()">Registrar Usuário</button>
+        <div id="registerResult" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>3. Login</h2>
+        <div class="form-group">
+            <input type="email" id="loginEmail" placeholder="Email" value="debug@teste.com">
+        </div>
+        <div class="form-group">
+            <input type="password" id="loginPassword" placeholder="Senha" value="123456">
+        </div>
+        <button class="btn" onclick="testLogin()">Fazer Login</button>
+        <div id="loginResult" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>4. Salvar Dados do Planner</h2>
+        <textarea id="plannerData" rows="6" placeholder="Dados JSON do planner">{
+  "semana1": {
+    "segunda": "Estudar Matemática",
+    "terca": "Estudar Português"
+  },
+  "progresso": {
+    "matematica": 75,
+    "portugues": 60
+  }
+}</textarea>
+        <button class="btn" onclick="testSaveData()">Salvar Dados</button>
+        <div id="saveResult" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>5. Buscar Dados do Planner</h2>
+        <button class="btn" onclick="testGetData()">Buscar Dados</button>
+        <div id="getResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let authToken = null;
+
+        function showResult(elementId, content, type = '') {
+            const element = document.getElementById(elementId);
+            element.textContent = content;
+            element.className = `result ${type}`;
+        }
+
+        function showLoading(elementId) {
+            showResult(elementId, 'Carregando...', 'loading');
+        }
+
+        async function testHealth() {
+            showLoading('healthResult');
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                showResult('healthResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`, 
+                          response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('healthResult', `Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testRegister() {
+            showLoading('registerResult');
+            const name = document.getElementById('debugName').value;
+            const email = document.getElementById('debugEmail').value;
+            const password = document.getElementById('debugPassword').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const data = await response.json();
+                showResult('registerResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`, 
+                          response.ok ? 'success' : 'error');
+
+                if (response.ok && data.token) {
+                    authToken = data.token;
+                }
+            } catch (error) {
+                showResult('registerResult', `Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            showLoading('loginResult');
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                showResult('loginResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`, 
+                          response.ok ? 'success' : 'error');
+
+                if (response.ok && data.token) {
+                    authToken = data.token;
+                    showResult('loginResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}\n\nToken salvo para próximos testes!`, 'success');
+                }
+            } catch (error) {
+                showResult('loginResult', `Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSaveData() {
+            if (!authToken) {
+                showResult('saveResult', 'Faça login primeiro!', 'error');
+                return;
+            }
+
+            showLoading('saveResult');
+            const data = JSON.parse(document.getElementById('plannerData').value);
+
+            try {
+                const response = await fetch(`${API_BASE}/planner/data`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ data })
+                });
+
+                const result = await response.json();
+                showResult('saveResult', `Status: ${response.status}\n${JSON.stringify(result, null, 2)}`, 
+                          response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('saveResult', `Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetData() {
+            if (!authToken) {
+                showResult('getResult', 'Faça login primeiro!', 'error');
+                return;
+            }
+
+            showLoading('getResult');
+            try {
+                const response = await fetch(`${API_BASE}/planner/data`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                showResult('getResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`, 
+                          response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('getResult', `Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Testar health check ao carregar a página
+        window.addEventListener('load', testHealth);
+    </script>
+</body>
+</html>

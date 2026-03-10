@@ -11,40 +11,93 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'seu-secreto-super-seguro';
 
 // Middleware
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+}));
 
-// Servir arquivos estáticos do diretório raiz
+// CORS configurado para Vercel
+app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Servir arquivos estáticos
 app.use(express.static(__dirname));
 
 // Banco de dados SQLite
-const db = new sqlite3.Database('./planner.db');
+let db;
 
-// Criar tabelas
-db.serialize(() => {
-    // Tabela de usuários
-    db.run(`
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
+// Inicialização do banco de dados
+const initDb = () => {
+    if (process.env.NODE_ENV === 'production') {
+        // No Vercel, usar banco em memória com persistência
+        db = new sqlite3.Database(':memory:');
+        
+        // Criar tabelas
+        db.serialize(() => {
+            db.run(`
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
 
-    // Tabela de dados do planner
-    db.run(`
-        CREATE TABLE IF NOT EXISTS planner_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            data TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        )
-    `);
+            db.run(`
+                CREATE TABLE planner_data (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    data TEXT NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+                )
+            `);
+        });
+    } else {
+        // Local development
+        db = new sqlite3.Database('./planner.db');
+        
+        db.serialize(() => {
+            db.run(`
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            db.run(`
+                CREATE TABLE IF NOT EXISTS planner_data (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    data TEXT NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+                )
+            `);
+        });
+    }
+};
+
+initDb();
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
 });
 
 // Middleware de verificação de JWT
@@ -67,6 +120,8 @@ const authenticateToken = (req, res, next) => {
 
 // Rotas de autenticação
 app.post('/api/auth/register', async (req, res) => {
+    console.log('📝 Registro iniciado:', req.body.email);
+    
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
@@ -81,10 +136,12 @@ app.post('/api/auth/register', async (req, res) => {
         // Verificar se usuário já existe
         db.get('SELECT id FROM users WHERE email = ?', [email], async (err, row) => {
             if (err) {
+                console.error('❌ Erro no banco de dados:', err);
                 return res.status(500).json({ error: 'Erro no banco de dados' });
             }
 
             if (row) {
+                console.log('⚠️ Email já cadastrado:', email);
                 return res.status(400).json({ error: 'Email já cadastrado' });
             }
 
@@ -97,8 +154,11 @@ app.post('/api/auth/register', async (req, res) => {
                 [name, email, hashedPassword],
                 function(err) {
                     if (err) {
+                        console.error('❌ Erro ao criar usuário:', err);
                         return res.status(500).json({ error: 'Erro ao criar usuário' });
                     }
+
+                    console.log('✅ Usuário criado com sucesso:', email);
 
                     // Criar token JWT
                     const token = jwt.sign(
@@ -116,6 +176,7 @@ app.post('/api/auth/register', async (req, res) => {
             );
         });
     } catch (error) {
+        console.error('❌ Erro no servidor:', error);
         res.status(500).json({ error: 'Erro no servidor' });
     }
 });
