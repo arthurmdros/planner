@@ -174,6 +174,51 @@
         .strength-weak { background: #dc2626; width: 33%; }
         .strength-medium { background: #f59e0b; width: 66%; }
         .strength-strong { background: #16a34a; width: 100%; }
+        
+        .password-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .password-toggle:hover {
+            background: #f1f5f9;
+            color: #374151;
+        }
+        
+        .password-input {
+            width: 100%;
+            padding-right: 40px !important;
+        }
+        
+        .forgot-password {
+            text-align: right;
+            margin-top: 10px;
+        }
+        
+        .forgot-password a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .forgot-password a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -199,7 +244,14 @@
             
             <div class="form-group">
                 <label for="loginPassword">Senha</label>
-                <input type="password" id="loginPassword" required placeholder="••••••••">
+                <div class="password-input-wrapper">
+                    <input type="password" id="loginPassword" class="password-input" required placeholder="••••••••">
+                    <button type="button" class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</button>
+                </div>
+            </div>
+            
+            <div class="forgot-password">
+                <a href="#" onclick="showForgotPassword()">Esqueceu a senha?</a>
             </div>
             
             <button type="submit" class="btn btn-primary">Entrar</button>
@@ -219,11 +271,33 @@
             
             <div class="form-group">
                 <label for="registerPassword">Senha (mínimo 6 caracteres)</label>
-                <input type="password" id="registerPassword" required placeholder="••••••••">
+                <div class="password-input-wrapper">
+                    <input type="password" id="registerPassword" class="password-input" required placeholder="••••••••">
+                    <button type="button" class="password-toggle" onclick="togglePassword('registerPassword', this)">👁️</button>
+                </div>
                 <div class="password-strength" id="passwordStrength"></div>
             </div>
             
+            <div class="form-group">
+                <label for="confirmPassword">Confirmar senha</label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="confirmPassword" class="password-input" required placeholder="••••••••">
+                    <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword', this)">👁️</button>
+                </div>
+            </div>
+            
             <button type="submit" class="btn btn-primary">Criar conta</button>
+        </form>
+        
+        <!-- Forgot Password Form -->
+        <form id="forgotForm" style="display: none;">
+            <div class="form-group">
+                <label for="forgotEmail">Email cadastrado</label>
+                <input type="email" id="forgotEmail" required placeholder="seu@email.com">
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Enviar link de recuperação</button>
+            <button type="button" class="btn btn-secondary" onclick="backToLogin()">Voltar para login</button>
         </form>
         
         <p style="margin-top: 20px; color: #64748b;">
@@ -238,12 +312,37 @@
         // Elementos
         const loginForm = document.getElementById('loginForm');
         const registerForm = document.getElementById('registerForm');
+        const forgotForm = document.getElementById('forgotForm');
         const toggleForm = document.getElementById('toggleForm');
         const toggleText = document.getElementById('toggleText');
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
         const loading = document.getElementById('loading');
         const passwordStrength = document.getElementById('passwordStrength');
+        
+        // Função para mostrar/esconder senha
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            const type = input.type === 'password' ? 'text' : 'password';
+            input.type = type;
+            button.textContent = type === 'password' ? '👁️' : '🙈';
+        }
+        
+        // Função para mostrar formulário de esqueceu senha
+        function showForgotPassword() {
+            loginForm.style.display = 'none';
+            registerForm.style.display = 'none';
+            forgotForm.style.display = 'block';
+            hideMessages();
+        }
+        
+        // Função para voltar ao login
+        function backToLogin() {
+            forgotForm.style.display = 'none';
+            loginForm.style.display = 'block';
+            registerForm.style.display = 'none';
+            hideMessages();
+        }
         
         // Toggle entre login e registro
         toggleForm.addEventListener('click', (e) => {
@@ -334,9 +433,15 @@
             const name = document.getElementById('registerName').value;
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
             
             if (password.length < 6) {
                 showError('A senha deve ter pelo menos 6 caracteres');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('As senhas não coincidem');
                 return;
             }
             
@@ -364,6 +469,46 @@
                     }, 1500);
                 } else {
                     showError(data.error || 'Erro ao criar conta');
+                }
+            } catch (error) {
+                showError('Erro de conexão. Tente novamente.');
+            } finally {
+                hideLoading();
+            }
+        });
+        
+        // Esqueceu senha
+        forgotForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('forgotEmail').value;
+            
+            if (!email) {
+                showError('Por favor, informe seu email');
+                return;
+            }
+            
+            showLoading();
+            hideMessages();
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/forgot-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showSuccess('Link de recuperação enviado! Verifique seu email.');
+                    setTimeout(() => {
+                        backToLogin();
+                    }, 3000);
+                } else {
+                    showError(data.error || 'Erro ao enviar link de recuperação');
                 }
             } catch (error) {
                 showError('Erro de conexão. Tente novamente.');

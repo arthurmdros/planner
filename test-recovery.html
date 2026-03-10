@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Recuperação de Senha - Planner</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            color: #6c757d;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        .step {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .link {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Teste Sistema de Recuperação de Senha</h1>
+    
+    <div class="container">
+        <h2>📋 Fluxo Completo de Teste</h2>
+        
+        <div class="step">
+            <h3>Passo 1: Solicitar Recuperação</h3>
+            <p>Use um email que já exista no sistema ou crie um novo usuário primeiro.</p>
+            <div class="form-group">
+                <input type="email" id="testEmail" placeholder="Email para recuperação" value="teste@exemplo.com">
+            </div>
+            <button class="btn" onclick="testForgotPassword()">1. Enviar Link de Recuperação</button>
+            <div id="forgotResult" class="result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>Passo 2: Usar Link de Recuperação</h3>
+            <p>Copie o token retornado (em ambiente de desenvolvimento) ou use o link completo.</p>
+            <div class="form-group">
+                <input type="text" id="resetToken" placeholder="Token de recuperação">
+            </div>
+            <div class="form-group">
+                <input type="password" id="newPassword" placeholder="Nova senha (mínimo 6 caracteres)">
+            </div>
+            <div class="form-group">
+                <input type="password" id="confirmPassword" placeholder="Confirmar nova senha">
+            </div>
+            <button class="btn" onclick="testResetPassword()">2. Redefinir Senha</button>
+            <div id="resetResult" class="result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>Passo 3: Testar Login com Nova Senha</h3>
+            <div class="form-group">
+                <input type="email" id="loginEmail" placeholder="Email" value="teste@exemplo.com">
+            </div>
+            <div class="form-group">
+                <input type="password" id="loginPassword" placeholder="Nova senha">
+            </div>
+            <button class="btn" onclick="testLogin()">3. Testar Login</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔗 Links Diretos</h2>
+        <p><a href="/auth.html" class="link">Página de Login/Cadastro</a></p>
+        <p><a href="/reset-password.html" class="link">Página de Reset de Senha</a></p>
+        <p><a href="/debug.html" class="link">Página de Debug da API</a></p>
+    </div>
+
+    <div class="container">
+        <h2>📝 Logs do Sistema</h2>
+        <div id="systemLogs" class="result" style="max-height: 200px; overflow-y: auto;"></div>
+        <button class="btn" onclick="clearLogs()">Limpar Logs</button>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let authToken = null;
+
+        function log(message) {
+            const logs = document.getElementById('systemLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            logs.textContent += `[${timestamp}] ${message}\n`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function showResult(elementId, content, type = '') {
+            const element = document.getElementById(elementId);
+            element.textContent = content;
+            element.className = `result ${type}`;
+        }
+
+        function showLoading(elementId) {
+            showResult(elementId, 'Carregando...', 'loading');
+        }
+
+        function clearLogs() {
+            document.getElementById('systemLogs').textContent = '';
+        }
+
+        async function testForgotPassword() {
+            showLoading('forgotResult');
+            const email = document.getElementById('testEmail').value;
+
+            if (!email) {
+                showResult('forgotResult', 'Informe um email', 'error');
+                return;
+            }
+
+            log(`📧 Enviando solicitação de recuperação para: ${email}`);
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/forgot-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+                log(`📬 Resposta: ${response.status} - ${JSON.stringify(data)}`);
+
+                if (response.ok) {
+                    let message = `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+                    
+                    // Em desenvolvimento, mostrar o link de reset
+                    if (data.debug) {
+                        message += `\n\n🔗 Link de Reset (desenvolvimento):\n${data.debug}`;
+                        document.getElementById('resetToken').value = data.debug.split('token=')[1];
+                        log('🔗 Token extraído e preenchido automaticamente');
+                    }
+                    
+                    showResult('forgotResult', message, 'success');
+                } else {
+                    showResult('forgotResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`);
+                showResult('forgotResult', `Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testResetPassword() {
+            showLoading('resetResult');
+            const token = document.getElementById('resetToken').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (!token || !newPassword || !confirmPassword) {
+                showResult('resetResult', 'Preencha todos os campos', 'error');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showResult('resetResult', 'As senhas não coincidem', 'error');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showResult('resetResult', 'A senha deve ter pelo menos 6 caracteres', 'error');
+                return;
+            }
+
+            log(`🔐 Redefinindo senha com token: ${token.substring(0, 8)}...`);
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/reset-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token, newPassword })
+                });
+
+                const data = await response.json();
+                log(`📬 Resposta: ${response.status} - ${JSON.stringify(data)}`);
+
+                if (response.ok) {
+                    showResult('resetResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`, 'success');
+                    
+                    // Preencher senha no formulário de login
+                    document.getElementById('loginPassword').value = newPassword;
+                    log('🔑 Nova senha preenchida no formulário de login');
+                } else {
+                    showResult('resetResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`);
+                showResult('resetResult', `Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            showLoading('loginResult');
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showResult('loginResult', 'Preencha email e senha', 'error');
+                return;
+            }
+
+            log(`🔑 Testando login com: ${email}`);
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                log(`📬 Resposta: ${response.status} - ${JSON.stringify(data)}`);
+
+                if (response.ok) {
+                    authToken = data.token;
+                    showResult('loginResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}\n\n✅ Login bem-sucedido! Token obtido.`, 'success');
+                    log('✅ Login realizado com sucesso!');
+                } else {
+                    showResult('loginResult', `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`);
+                showResult('loginResult', `Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Iniciar
+        log('🚀 Sistema de teste de recuperação de senha carregado');
+        log(`🌐 API Base: ${API_BASE}`);
+    </script>
+</body>
+</html>

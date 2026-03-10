@@ -6,7 +6,7 @@
       "use": "@vercel/node"
     },
     {
-      "src": "{index.html,auth.html}",
+      "src": "{index.html,auth.html,reset-password.html,debug.html}",
       "use": "@vercel/static"
     }
   ],
@@ -18,6 +18,10 @@
     {
       "src": "/auth",
       "dest": "/auth.html"
+    },
+    {
+      "src": "/reset-password",
+      "dest": "/reset-password.html"
     },
     {
       "src": "/(.*)",
