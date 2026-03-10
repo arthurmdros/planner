@@ -1,0 +1,8 @@
+/node_modules
+.vercel
+planner.db
+*.log
+.env
+.DS_Store
+.vscode/
+.idea/

@@ -2,14 +2,33 @@
   "version": 2,
   "builds": [
     {
-      "src": "planner.html",
+      "src": "server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "auth.html",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/auth",
+      "dest": "/auth.html"
+    },
+    {
       "src": "/",
-      "dest": "/planner.html"
+      "dest": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "JWT_SECRET": "planner-premium-jwt-secret-2024"
+  }
 }

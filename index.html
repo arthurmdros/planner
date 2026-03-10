@@ -23,6 +23,113 @@
             min-height: 100vh;
         }
         
+        /* Auth overlay */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .user-info {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 999;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .user-details {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        
+        .user-email {
+            color: #64748b;
+            font-size: 12px;
+        }
+        
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .logout-btn:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+        
+        .sync-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            z-index: 998;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .sync-status.show {
+            opacity: 1;
+        }
+        
+        .sync-status.syncing {
+            color: #f59e0b;
+        }
+        
+        .sync-status.success {
+            color: #16a34a;
+        }
+        
+        .sync-status.error {
+            color: #dc2626;
+        }
+        
         .page {
             width: 100%;
             min-height: 100vh;
@@ -402,6 +509,24 @@
     </style>
 </head>
 <body>
+    <!-- Auth Overlay -->
+    <div class="auth-overlay" id="authOverlay"></div>
+    
+    <!-- User Info -->
+    <div class="user-info" id="userInfo" style="display: none;">
+        <div class="user-avatar" id="userAvatar">U</div>
+        <div class="user-details">
+            <div class="user-name" id="userName">Usuário</div>
+            <div class="user-email" id="userEmail">user@email.com</div>
+        </div>
+        <button class="logout-btn" onclick="logout()">Sair</button>
+    </div>
+    
+    <!-- Sync Status -->
+    <div class="sync-status" id="syncStatus">
+        <span id="syncText">Sincronizando...</span>
+    </div>
+    
     <!-- Menu Superior Moderno -->
     <nav class="top-nav">
         <div class="nav-container">
@@ -1092,7 +1217,166 @@
     </div>
     
     <script>
-        // Sistema de Persistência de Dados
+        // Configuração da API
+        const API_BASE = window.location.origin + '/api';
+        let currentUser = null;
+        let authToken = null;
+        
+        // Sistema de Autenticação
+        class AuthManager {
+            constructor() {
+                this.init();
+            }
+            
+            init() {
+                // Verificar se já está logado
+                const token = localStorage.getItem('plannerToken');
+                const user = localStorage.getItem('plannerUser');
+                
+                if (token && user) {
+                    authToken = token;
+                    currentUser = JSON.parse(user);
+                    this.showUserInfo();
+                } else {
+                    this.redirectToLogin();
+                }
+            }
+            
+            redirectToLogin() {
+                window.location.href = '/auth.html';
+            }
+            
+            showUserInfo() {
+                const userInfo = document.getElementById('userInfo');
+                const userName = document.getElementById('userName');
+                const userEmail = document.getElementById('userEmail');
+                const userAvatar = document.getElementById('userAvatar');
+                
+                if (currentUser && userInfo) {
+                    userName.textContent = currentUser.name;
+                    userEmail.textContent = currentUser.email;
+                    userAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
+                    userInfo.style.display = 'flex';
+                }
+            }
+            
+            async logout() {
+                try {
+                    localStorage.removeItem('plannerToken');
+                    localStorage.removeItem('plannerUser');
+                    this.redirectToLogin();
+                } catch (error) {
+                    console.error('Erro ao fazer logout:', error);
+                }
+            }
+        }
+        
+        // Sistema de Sincronização com Backend
+        class SyncManager {
+            constructor() {
+                this.isOnline = navigator.onLine;
+                this.syncQueue = [];
+                this.syncInProgress = false;
+                this.init();
+            }
+            
+            init() {
+                // Listener de conexão
+                window.addEventListener('online', () => {
+                    this.isOnline = true;
+                    this.processSyncQueue();
+                });
+                
+                window.addEventListener('offline', () => {
+                    this.isOnline = false;
+                });
+                
+                // Auto-sync a cada 30 segundos
+                setInterval(() => {
+                    if (this.isOnline && !this.syncInProgress) {
+                        this.syncData();
+                    }
+                }, 30000);
+            }
+            
+            showSyncStatus(message, type = 'syncing') {
+                const syncStatus = document.getElementById('syncStatus');
+                const syncText = document.getElementById('syncText');
+                
+                if (syncStatus && syncText) {
+                    syncText.textContent = message;
+                    syncStatus.className = `sync-status show ${type}`;
+                    
+                    if (type !== 'syncing') {
+                        setTimeout(() => {
+                            syncStatus.classList.remove('show');
+                        }, 3000);
+                    }
+                }
+            }
+            
+            async syncData() {
+                if (!authToken || this.syncInProgress) return;
+                
+                this.syncInProgress = true;
+                this.showSyncStatus('Sincronizando...', 'syncing');
+                
+                try {
+                    const response = await fetch(`${API_BASE}/planner/data`, {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        
+                        // Mesclar dados do backend com local
+                        if (result.data && Object.keys(result.data).length > 0) {
+                            const localData = storage.data;
+                            const mergedData = { ...localData, ...result.data };
+                            storage.data = mergedData;
+                            storage.saveLocalData();
+                            this.showSyncStatus('Dados sincronizados', 'success');
+                        }
+                    } else {
+                        throw new Error('Erro ao buscar dados do servidor');
+                    }
+                } catch (error) {
+                    console.error('Erro na sincronização:', error);
+                    this.showSyncStatus('Erro na sincronização', 'error');
+                } finally {
+                    this.syncInProgress = false;
+                }
+            }
+            
+            async saveToBackend(data) {
+                if (!authToken) return;
+                
+                try {
+                    const response = await fetch(`${API_BASE}/planner/data`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ data })
+                    });
+                    
+                    if (response.ok) {
+                        this.showSyncStatus('Dados salvos na nuvem', 'success');
+                    } else {
+                        throw new Error('Erro ao salvar no servidor');
+                    }
+                } catch (error) {
+                    console.error('Erro ao salvar no backend:', error);
+                    this.showSyncStatus('Erro ao salvar na nuvem', 'error');
+                }
+            }
+        }
+        
+        // Sistema de Persistência de Dados (Modificado)
         class PlannerStorage {
             constructor() {
                 this.storageKey = 'planner_concurso_data';
@@ -1100,12 +1384,23 @@
             }
             
             loadData() {
+                // Tentar carregar do localStorage primeiro (offline)
                 const stored = localStorage.getItem(this.storageKey);
                 return stored ? JSON.parse(stored) : {};
             }
             
-            saveData() {
+            saveLocalData() {
                 localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+            }
+            
+            async saveData() {
+                // Salvar localmente imediatamente
+                this.saveLocalData();
+                
+                // Salvar no backend se estiver online
+                if (window.syncManager && window.syncManager.isOnline) {
+                    await window.syncManager.saveToBackend(this.data);
+                }
             }
             
             set(key, value) {
@@ -1120,6 +1415,32 @@
             remove(key) {
                 delete this.data[key];
                 this.saveData();
+            }
+            
+            async clearAllData() {
+                this.data = {};
+                this.saveLocalData();
+                
+                // Limpar no backend
+                if (authToken) {
+                    try {
+                        await fetch(`${API_BASE}/planner/data`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Erro ao limpar dados do backend:', error);
+                    }
+                }
+            }
+        }
+        
+        // Função global para logout
+        function logout() {
+            if (window.authManager) {
+                window.authManager.logout();
             }
         }
         
@@ -1416,9 +1737,9 @@
                 input.click();
             }
             
-            clearData() {
+            async clearData() {
                 if (confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.')) {
-                    localStorage.removeItem(storage.storageKey);
+                    await storage.clearAllData();
                     location.reload();
                 }
             }
@@ -1428,7 +1749,11 @@
         let storage, navigation, editableFields, tracker, dataManager;
         
         document.addEventListener('DOMContentLoaded', function() {
-            // Inicializar sistemas
+            // Inicializar sistemas de autenticação e sincronização primeiro
+            window.authManager = new AuthManager();
+            window.syncManager = new SyncManager();
+            
+            // Inicializar sistemas existentes
             storage = new PlannerStorage();
             navigation = new NavigationManager();
             editableFields = new EditableFields();

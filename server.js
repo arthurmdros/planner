@@ -1,0 +1,229 @@
+const express = require('express');
+const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
+const helmet = require('helmet');
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'seu-secreto-super-seguro';
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Servir arquivos estáticos do diretório raiz
+app.use(express.static(__dirname));
+
+// Banco de dados SQLite
+const db = new sqlite3.Database('./planner.db');
+
+// Criar tabelas
+db.serialize(() => {
+    // Tabela de usuários
+    db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Tabela de dados do planner
+    db.run(`
+        CREATE TABLE IF NOT EXISTS planner_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            data TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+    `);
+});
+
+// Middleware de verificação de JWT
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Token não fornecido' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Token inválido' });
+        }
+        req.user = user;
+        next();
+    });
+};
+
+// Rotas de autenticação
+app.post('/api/auth/register', async (req, res) => {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+        return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+    }
+
+    if (password.length < 6) {
+        return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres' });
+    }
+
+    try {
+        // Verificar se usuário já existe
+        db.get('SELECT id FROM users WHERE email = ?', [email], async (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: 'Erro no banco de dados' });
+            }
+
+            if (row) {
+                return res.status(400).json({ error: 'Email já cadastrado' });
+            }
+
+            // Criar hash da senha
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // Inserir usuário
+            db.run(
+                'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+                [name, email, hashedPassword],
+                function(err) {
+                    if (err) {
+                        return res.status(500).json({ error: 'Erro ao criar usuário' });
+                    }
+
+                    // Criar token JWT
+                    const token = jwt.sign(
+                        { id: this.lastID, name, email },
+                        JWT_SECRET,
+                        { expiresIn: '7d' }
+                    );
+
+                    res.status(201).json({
+                        message: 'Usuário criado com sucesso',
+                        token,
+                        user: { id: this.lastID, name, email }
+                    });
+                }
+            );
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro no servidor' });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+    }
+
+    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'Erro no banco de dados' });
+        }
+
+        if (!user) {
+            return res.status(401).json({ error: 'Email ou senha incorretos' });
+        }
+
+        // Verificar senha
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Email ou senha incorretos' });
+        }
+
+        // Criar token JWT
+        const token = jwt.sign(
+            { id: user.id, name: user.name, email: user.email },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.json({
+            message: 'Login realizado com sucesso',
+            token,
+            user: { id: user.id, name: user.name, email: user.email }
+        });
+    });
+});
+
+// Rotas do planner
+app.get('/api/planner/data', authenticateToken, (req, res) => {
+    db.get(
+        'SELECT data FROM planner_data WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+        [req.user.id],
+        (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: 'Erro ao buscar dados' });
+            }
+
+            if (row) {
+                res.json({ data: JSON.parse(row.data) });
+            } else {
+                res.json({ data: {} });
+            }
+        }
+    );
+});
+
+app.post('/api/planner/data', authenticateToken, (req, res) => {
+    const { data } = req.body;
+
+    if (!data || typeof data !== 'object') {
+        return res.status(400).json({ error: 'Dados inválidos' });
+    }
+
+    // Inserir ou atualizar dados do planner
+    db.run(
+        `INSERT INTO planner_data (user_id, data) 
+         VALUES (?, ?) 
+         ON CONFLICT(user_id) DO UPDATE SET 
+         data = excluded.data, 
+         updated_at = CURRENT_TIMESTAMP`,
+        [req.user.id, JSON.stringify(data)],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Erro ao salvar dados' });
+            }
+
+            res.json({ message: 'Dados salvos com sucesso' });
+        }
+    );
+});
+
+app.delete('/api/planner/data', authenticateToken, (req, res) => {
+    db.run(
+        'DELETE FROM planner_data WHERE user_id = ?',
+        [req.user.id],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Erro ao limpar dados' });
+            }
+
+            res.json({ message: 'Dados limpos com sucesso' });
+        }
+    );
+});
+
+// Rota principal - servir o index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Iniciar servidor
+app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+    console.log(`Acesse: http://localhost:${PORT}`);
+});
+
+module.exports = app;
