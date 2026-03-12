@@ -296,7 +296,35 @@
                 <input type="email" id="forgotEmail" required placeholder="seu@email.com">
             </div>
             
-            <button type="submit" class="btn btn-primary">Enviar link de recuperação</button>
+            <div class="form-group">
+                <label for="forgotAccessKey">Chave de acesso</label>
+                <input type="text" id="forgotAccessKey" required placeholder="Sua chave de 8 caracteres" maxlength="8" style="text-transform: uppercase;">
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Validar dados</button>
+            <button type="button" class="btn btn-secondary" onclick="backToLogin()">Voltar para login</button>
+        </form>
+        
+        <!-- Reset Password Form -->
+        <form id="resetForm" style="display: none;">
+            <div class="form-group">
+                <label>Nova senha (mínimo 6 caracteres)</label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="newPassword" class="password-input" required placeholder="••••••••">
+                    <button type="button" class="password-toggle" onclick="togglePassword('newPassword', this)">👁️</button>
+                </div>
+                <div class="password-strength" id="newPasswordStrength"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>Confirmar nova senha</label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="confirmNewPassword" class="password-input" required placeholder="••••••••">
+                    <button type="button" class="password-toggle" onclick="togglePassword('confirmNewPassword', this)">👁️</button>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Redefinir senha</button>
             <button type="button" class="btn btn-secondary" onclick="backToLogin()">Voltar para login</button>
         </form>
         
@@ -314,12 +342,14 @@
         const loginForm = document.getElementById('loginForm');
         const registerForm = document.getElementById('registerForm');
         const forgotForm = document.getElementById('forgotForm');
+        const resetForm = document.getElementById('resetForm');
         const toggleForm = document.getElementById('toggleForm');
         const toggleText = document.getElementById('toggleText');
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
         const loading = document.getElementById('loading');
         const passwordStrength = document.getElementById('passwordStrength');
+        const newPasswordStrength = document.getElementById('newPasswordStrength');
         
         // Função para mostrar/esconder senha
         function togglePassword(inputId, button) {
@@ -333,13 +363,29 @@
         function showForgotPassword() {
             loginForm.style.display = 'none';
             registerForm.style.display = 'none';
+            resetForm.style.display = 'none';
             forgotForm.style.display = 'block';
+            hideMessages();
+        }
+        
+        // Função para mostrar formulário de reset de senha
+        function showResetPasswordForm(email, accessKey) {
+            loginForm.style.display = 'none';
+            registerForm.style.display = 'none';
+            forgotForm.style.display = 'none';
+            resetForm.style.display = 'block';
+            
+            // Salvar dados validados para usar depois
+            resetForm.dataset.email = email;
+            resetForm.dataset.accessKey = accessKey;
+            
             hideMessages();
         }
         
         // Função para voltar ao login
         function backToLogin() {
             forgotForm.style.display = 'none';
+            resetForm.style.display = 'none';
             loginForm.style.display = 'block';
             registerForm.style.display = 'none';
             hideMessages();
@@ -367,6 +413,17 @@
         // Verificar força da senha
         document.getElementById('registerPassword').addEventListener('input', (e) => {
             const password = e.target.value;
+            updatePasswordStrength(password, passwordStrength);
+        });
+        
+        // Verificar força da nova senha
+        document.getElementById('newPassword').addEventListener('input', (e) => {
+            const password = e.target.value;
+            updatePasswordStrength(password, newPasswordStrength);
+        });
+        
+        // Função para atualizar indicador de força da senha
+        function updatePasswordStrength(password, strengthElement) {
             let strength = 0;
             
             if (password.length >= 6) strength++;
@@ -375,18 +432,18 @@
             if (/[0-9]/.test(password)) strength++;
             if (/[^A-Za-z0-9]/.test(password)) strength++;
             
-            passwordStrength.className = 'password-strength';
+            strengthElement.className = 'password-strength';
             
             if (password.length > 0) {
                 if (strength <= 2) {
-                    passwordStrength.classList.add('strength-weak');
+                    strengthElement.classList.add('strength-weak');
                 } else if (strength <= 3) {
-                    passwordStrength.classList.add('strength-medium');
+                    strengthElement.classList.add('strength-medium');
                 } else {
-                    passwordStrength.classList.add('strength-strong');
+                    strengthElement.classList.add('strength-strong');
                 }
             }
-        });
+        }
         
         // Validação de e-mail
         function validateEmail(email) {
@@ -545,6 +602,7 @@
             e.preventDefault();
             
             const email = document.getElementById('forgotEmail').value;
+            const accessKey = document.getElementById('forgotAccessKey').value.toUpperCase();
             
             if (!email) {
                 showError('Por favor, informe seu email');
@@ -556,30 +614,84 @@
                 return;
             }
             
+            if (!accessKey || accessKey.length !== 8) {
+                showError('A chave de acesso deve ter 8 caracteres');
+                return;
+            }
+            
             showLoading();
             hideMessages();
             
             try {
-                const response = await fetch(`${API_BASE}/auth/forgot-password`, {
+                const response = await fetch(`${API_BASE}/auth/reset-password`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email })
+                    body: JSON.stringify({ email, accessKey, newPassword: '' })
+                });
+                
+                const data = await response.json();
+                
+                if (response.status === 400 && data.error === 'Email, chave de acesso e nova senha são obrigatórios') {
+                    // Primeira validação passou, mostrar formulário de nova senha
+                    hideLoading();
+                    showResetPasswordForm(email, accessKey);
+                } else if (response.ok) {
+                    showSuccess('Senha redefinida com sucesso!');
+                    setTimeout(() => {
+                        backToLogin();
+                    }, 2000);
+                } else {
+                    showError(data.error || 'Erro ao redefinir senha');
+                }
+            } catch (error) {
+                showError('Erro de conexão. Tente novamente.');
+            } finally {
+                hideLoading();
+            }
+        });
+        
+        // Reset de senha
+        resetForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+            const email = resetForm.dataset.email;
+            const accessKey = resetForm.dataset.accessKey;
+            
+            if (!validatePassword(newPassword)) {
+                showError('A senha deve ter pelo menos 6 caracteres');
+                return;
+            }
+            
+            if (newPassword !== confirmNewPassword) {
+                showError('As senhas não coincidem');
+                return;
+            }
+            
+            showLoading();
+            hideMessages();
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/reset-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, accessKey, newPassword })
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showSuccess('Link de recuperação enviado! Verifique seu email.');
-                    if (data.debug) {
-                        console.log('Link de debug (desenvolvimento):', data.debug);
-                    }
+                    showSuccess('Senha redefinida com sucesso! Redirecionando...');
                     setTimeout(() => {
                         backToLogin();
-                    }, 3000);
+                    }, 2000);
                 } else {
-                    showError(data.error || 'Erro ao enviar link de recuperação');
+                    showError(data.error || 'Erro ao redefinir senha');
                 }
             } catch (error) {
                 showError('Erro de conexão. Tente novamente.');
@@ -610,14 +722,20 @@
             loading.style.display = 'block';
             loginForm.style.display = 'none';
             registerForm.style.display = 'none';
+            forgotForm.style.display = 'none';
+            resetForm.style.display = 'none';
         }
         
         function hideLoading() {
             loading.style.display = 'none';
-            if (registerForm.style.display === 'none') {
+            if (registerForm.style.display === 'none' && forgotForm.style.display === 'none' && resetForm.style.display === 'none') {
                 loginForm.style.display = 'block';
-            } else {
+            } else if (registerForm.style.display !== 'none') {
                 registerForm.style.display = 'block';
+            } else if (forgotForm.style.display !== 'none') {
+                forgotForm.style.display = 'block';
+            } else if (resetForm.style.display !== 'none') {
+                resetForm.style.display = 'block';
             }
         }
         

@@ -9,7 +9,26 @@ class IndexedDBStorage {
     }
 
     async init() {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
+            // Verificar suporte ao IndexedDB primeiro
+            if (!IndexedDBStorage.isSupported()) {
+                console.error('❌ IndexedDB não é suportado neste navegador');
+                this.useLocalStorageFallback();
+                resolve();
+                return;
+            }
+
+            console.log('🔄 Inicializando IndexedDB...');
+            
+            // Garantir que o banco de dados exista
+            const dbEnsured = await this.ensureDatabase();
+            if (!dbEnsured) {
+                console.error('❌ Não foi possível garantir o banco de dados');
+                this.useLocalStorageFallback();
+                resolve();
+                return;
+            }
+            
             const request = indexedDB.open(this.databaseName, this.version);
 
             request.onerror = () => {
@@ -21,18 +40,78 @@ class IndexedDBStorage {
 
             request.onsuccess = () => {
                 this.db = request.result;
-                console.log('✅ IndexedDB inicializado com sucesso');
-                this.loadData().then(resolve);
+                console.log('✅ IndexedDB aberto/criado com sucesso');
+                
+                // Verificar se o object store existe, se não, tentar criar
+                if (!this.db.objectStoreNames.contains('planner_data')) {
+                    console.log('⚠️ Object store não encontrado, tentando upgrade...');
+                    // Tentar fazer upgrade para criar o object store
+                    this.upgradeDatabase().then(() => {
+                        this.loadData().then(resolve);
+                    }).catch(() => {
+                        this.loadData().then(resolve);
+                    });
+                } else {
+                    this.loadData().then(resolve);
+                }
             };
 
             request.onupgradeneeded = (event) => {
+                console.log('🔄 Upgrade necessário do IndexedDB...');
+                const db = event.target.result;
+                
+                // Criar object store se não existir
+                if (!db.objectStoreNames.contains('planner_data')) {
+                    const objectStore = db.createObjectStore('planner_data', { keyPath: 'id', autoIncrement: true });
+                    objectStore.createIndex('key', 'key', { unique: true });
+                    console.log('✅ Object store criado durante upgrade');
+                } else {
+                    console.log('✅ Object store já existe durante upgrade');
+                }
+            };
+
+            request.onblocked = () => {
+                console.warn('⚠️ IndexedDB bloqueado por outra conexão');
+            };
+        });
+    }
+
+    async upgradeDatabase() {
+        return new Promise((resolve, reject) => {
+            // Fechar conexão atual se existir
+            if (this.db) {
+                this.db.close();
+            }
+
+            // Tentar abrir com versão incrementada
+            const newVersion = this.version + 1;
+            const request = indexedDB.open(this.databaseName, newVersion);
+
+            request.onerror = () => {
+                console.error('❌ Erro ao fazer upgrade do IndexedDB:', request.error);
+                reject(request.error);
+            };
+
+            request.onsuccess = () => {
+                this.db = request.result;
+                this.version = newVersion;
+                console.log('✅ IndexedDB upgrade concluído com sucesso');
+                resolve();
+            };
+
+            request.onupgradeneeded = (event) => {
+                console.log('🔄 Executando upgrade do IndexedDB...');
                 const db = event.target.result;
                 
                 if (!db.objectStoreNames.contains('planner_data')) {
                     const objectStore = db.createObjectStore('planner_data', { keyPath: 'id', autoIncrement: true });
                     objectStore.createIndex('key', 'key', { unique: true });
-                    console.log('✅ Object store criado');
+                    console.log('✅ Object store criado durante upgrade');
                 }
+            };
+
+            request.onblocked = () => {
+                console.warn('⚠️ Upgrade bloqueado por outra conexão');
             };
         });
     }
@@ -212,9 +291,78 @@ class IndexedDBStorage {
         }
     }
 
+    // Método estático para criar e inicializar o banco de dados automaticamente
+    static async createAndInit(databaseName = 'PlannerDB', version = 1) {
+        const storage = new IndexedDBStorage(databaseName, version);
+        
+        try {
+            await storage.init();
+            console.log('✅ IndexedDB criado e inicializado com sucesso');
+            return storage;
+        } catch (error) {
+            console.error('❌ Erro ao criar/inicializar IndexedDB:', error);
+            throw error;
+        }
+    }
+
     // Verificar suporte ao IndexedDB
     static isSupported() {
         return 'indexedDB' in window && indexedDB !== null;
+    }
+
+    // Método para verificar e criar o banco de dados explicitamente
+    async ensureDatabase() {
+        if (!IndexedDBStorage.isSupported()) {
+            console.error('❌ IndexedDB não é suportado');
+            return false;
+        }
+
+        try {
+            // Verificar se o banco já existe
+            const databases = await indexedDB.databases();
+            const dbExists = databases.some(db => db.name === this.databaseName);
+            
+            if (!dbExists) {
+                console.log('🔄 Banco de dados não encontrado, criando novo...');
+                // Criar banco diretamente sem chamar init() para evitar recursão
+                return await this.createDatabase();
+            } else {
+                console.log('✅ Banco de dados já existe');
+                return true;
+            }
+        } catch (error) {
+            console.error('❌ Erro ao verificar/criar banco de dados:', error);
+            return false;
+        }
+    }
+
+    // Método para criar o banco de dados diretamente
+    async createDatabase() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.databaseName, this.version);
+
+            request.onerror = () => {
+                console.error('❌ Erro ao criar banco de dados:', request.error);
+                reject(request.error);
+            };
+
+            request.onsuccess = () => {
+                this.db = request.result;
+                console.log('✅ Banco de dados criado com sucesso');
+                resolve(true);
+            };
+
+            request.onupgradeneeded = (event) => {
+                console.log('🔄 Criando estrutura do banco de dados...');
+                const db = event.target.result;
+                
+                if (!db.objectStoreNames.contains('planner_data')) {
+                    const objectStore = db.createObjectStore('planner_data', { keyPath: 'id', autoIncrement: true });
+                    objectStore.createIndex('key', 'key', { unique: true });
+                    console.log('✅ Object store criado');
+                }
+            };
+        });
     }
 
     // Obter informações de armazenamento

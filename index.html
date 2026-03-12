@@ -1626,14 +1626,20 @@
                     throw new Error('Seu navegador não suporta IndexedDB. Por favor, use um navegador moderno.');
                 }
                 
-                this.dbStorage = new IndexedDBStorage('PlannerDB', 1);
-                await this.dbStorage.init();
+                console.log('🔄 Criando e garantindo IndexedDB...');
+                
+                // Usar o novo método estático que garante a criação do banco
+                this.dbStorage = await IndexedDBStorage.createAndInit('PlannerDB', 1);
                 this.data = this.dbStorage.getAll();
                 this.storageMode = 'indexedDB';
                 this.initialized = true;
                 
                 console.log('✅ PlannerStorage inicializado com IndexedDB');
                 console.log('💾 Dados carregados:', Object.keys(this.data).length, 'itens');
+                
+                // Verificar informações do storage
+                const storageInfo = this.dbStorage.getStorageInfo();
+                console.log('📊 Storage Info:', storageInfo);
             }
             
             // Métodos diretos do IndexedDB (sem localStorage)
