@@ -1328,10 +1328,18 @@
                 this.loadAuthData().then(isLoggedIn => {
                     if (isLoggedIn) {
                         this.showUserInfo();
+                        // Continuar com a inicialização normal do app
+                        this.initializeApp();
                     } else {
+                        // Redirecionar imediatamente para login se não estiver autenticado
                         this.redirectToLogin();
                     }
                 });
+            }
+            
+            initializeApp() {
+                // Disparar evento para indicar que o usuário está autenticado
+                window.dispatchEvent(new CustomEvent('userAuthenticated'));
             }
             
             showUserInfo() {
@@ -1928,58 +1936,61 @@
             window.authManager = new AuthManager();
             window.syncManager = new SyncManager();
             
-            // Inicializar storage primeiro
-            storage = new PlannerStorage();
-            await storage.init();
-            
-            // Mostrar informações de armazenamento
-            const storageInfo = storage.getStorageInfo();
-            console.log('💾 Storage Info:', storageInfo);
-            
-            // Inicializar sistemas existentes
-            navigation = new NavigationManager();
-            editableFields = new EditableFields();
-            tracker = new TrackerManager();
-            dataManager = new DataManager();
-            
-            // Restaurar página atual
-            const savedPage = storage.get('currentPage');
-            if (savedPage !== null && savedPage >= 0 && savedPage < navigation.pages.length) {
-                navigation.goToPage(savedPage);
-            }
-            
-            // Restaurar progresso
-            editableFields.updateProgress();
-            
-            // Performance bars animation
-            const performanceBars = document.querySelectorAll('.performance-bar');
-            performanceBars.forEach(bar => {
-                bar.addEventListener('mouseenter', function() {
-                    const height = this.style.height;
-                    this.style.height = '95%';
-                    setTimeout(() => {
-                        this.style.height = height;
-                    }, 300);
+            // Aguardar usuário estar autenticado antes de inicializar o app
+            window.addEventListener('userAuthenticated', async function() {
+                console.log('✅ Usuário autenticado, inicializando aplicativo...');
+                
+                // Inicializar storage primeiro
+                storage = new PlannerStorage();
+                await storage.init();
+                
+                // Mostrar informações de armazenamento
+                const storageInfo = storage.getStorageInfo();
+                console.log('💾 Storage Info:', storageInfo);
+                
+                // Inicializar sistemas existentes
+                navigation = new NavigationManager();
+                editableFields = new EditableFields();
+                tracker = new TrackerManager();
+                dataManager = new DataManager();
+                
+                // Restaurar página atual
+                const savedPage = storage.get('currentPage');
+                if (savedPage !== null && savedPage >= 0 && savedPage < navigation.pages.length) {
+                    navigation.goToPage(savedPage);
+                }
+                
+                // Restaurar progresso
+                editableFields.updateProgress();
+                
+                // Performance bars animation
+                const performanceBars = document.querySelectorAll('.performance-bar');
+                performanceBars.forEach(bar => {
+                    bar.addEventListener('mouseenter', function() {
+                        const height = this.style.height;
+                        this.style.height = '95%';
+                        setTimeout(() => {
+                            this.style.height = height;
+                        }, 300);
+                    });
                 });
+                
+                // Adicionar efeitos hover nos botões de controle
+                const controlButtons = document.querySelectorAll('button[onclick*="dataManager"]');
+                controlButtons.forEach(button => {
+                    button.addEventListener('mouseenter', function() {
+                        button.style.transform = 'translateY(-2px)';
+                        button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                    });
+                    button.addEventListener('mouseleave', function() {
+                        button.style.transform = 'translateY(0)';
+                        button.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                    });
+                });
+                
+                console.log('🚀 Aplicativo inicializado com sucesso!');
             });
-            
-            // Adicionar efeitos hover nos botões de controle
-            const controlButtons = document.querySelectorAll('button[onclick*="dataManager"]');
-            controlButtons.forEach(button => {
-                button.addEventListener('mouseenter', function() {
-                    this.style.transform = 'translateY(-2px)';
-                    this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
-                });
-                button.addEventListener('mouseleave', function() {
-                    this.style.transform = 'translateY(0)';
-                    this.style.boxShadow = 'none';
-                });
-            });
-            
-            console.log('🚀 Planner Digital Premium inicializado com sucesso!');
-            console.log('📊 Páginas carregadas:', navigation.pages.length);
-            console.log('💾 Sistema de persistência ativo');
-        });
+        });    
     </script>
     <script src="indexeddb-storage.js"></script>
 </body>
