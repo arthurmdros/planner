@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Completo de Persistência - Planner</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-button.success {
+            background: #28a745;
+        }
+        .test-button.danger {
+            background: #dc3545;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.ok {
+            background: #28a745;
+            color: white;
+        }
+        .status.fail {
+            background: #dc3545;
+            color: white;
+        }
+        .status.pending {
+            background: #ffc107;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Completo de Persistência IndexedDB</h1>
+        <p>Verificação completa de todos os dados persistidos no sistema Planner.</p>
+        
+        <div class="grid">
+            <div class="section">
+                <h3>📊 Storage Principal</h3>
+                <div id="storageStatus" class="status pending">Verificando...</div>
+                <button class="test-button" onclick="testPlannerStorage()">Testar Planner Storage</button>
+                <button class="test-button" onclick="testAuthStorage()">Testar Auth Storage</button>
+            </div>
+            
+            <div class="section">
+                <h3>👤 Autenticação</h3>
+                <div id="authStatus" class="status pending">Verificando...</div>
+                <button class="test-button success" onclick="simulateLogin()">Simular Login</button>
+                <button class="test-button danger" onclick="simulateLogout()">Simular Logout</button>
+            </div>
+            
+            <div class="section">
+                <h3>📝 Dados do Planner</h3>
+                <div id="dataStatus" class="status pending">Verificando...</div>
+                <button class="test-button" onclick="testPlannerData()">Testar Dados Planner</button>
+                <button class="test-button" onclick="testProgressData()">Testar Progresso</button>
+            </div>
+            
+            <div class="section">
+                <h3>🔑 Chave de Acesso</h3>
+                <div id="accessKeyStatus" class="status pending">Verificando...</div>
+                <button class="test-button" onclick="testAccessKey()">Testar Chave de Acesso</button>
+                <button class="test-button" onclick="generateAccessKey()">Gerar Nova Chave</button>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button class="test-button" onclick="runFullTest()">🚀 Executar Teste Completo</button>
+            <button class="test-button" onclick="clearAllData()">🗑️ Limpar Todos os Dados</button>
+            <button class="test-button" onclick="exportData()">📦 Exportar Dados</button>
+            <button class="test-button" onclick="testPersistence()">🔄 Testar Persistência</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script src="indexeddb-storage.js"></script>
+    <script>
+        let plannerStorage, authStorage;
+        
+        async function init() {
+            try {
+                // Inicializar storages
+                plannerStorage = new IndexedDBStorage('PlannerDB', 1);
+                await plannerStorage.init();
+                
+                authStorage = new IndexedDBStorage('PlannerAuthDB', 1);
+                await authStorage.init();
+                
+                showResult('✅ Storages inicializados com sucesso!', 'success');
+                updateStatuses();
+            } catch (error) {
+                showResult('❌ Erro ao inicializar storages: ' + error.message, 'error');
+            }
+        }
+        
+        function showResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        function updateStatus(id, status, text) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.className = `status ${status}`;
+                element.textContent = text;
+            }
+        }
+        
+        function updateStatuses() {
+            // Verificar storage principal
+            const plannerInfo = plannerStorage.getStorageInfo();
+            updateStatus('storageStatus', 'ok', `OK (${plannerInfo.itemCount} itens)`);
+            
+            // Verificar auth storage
+            const authInfo = authStorage.getStorageInfo();
+            updateStatus('authStatus', authInfo.itemCount > 0 ? 'ok' : 'pending', 
+                         authInfo.itemCount > 0 ? `OK (${authInfo.itemCount} itens)` : 'Vazio');
+            
+            // Verificar dados do planner
+            const plannerData = plannerStorage.getAll();
+            updateStatus('dataStatus', Object.keys(plannerData).length > 0 ? 'ok' : 'pending',
+                         Object.keys(plannerData).length > 0 ? `${Object.keys(plannerData).length} campos` : 'Vazio');
+            
+            // Verificar chave de acesso
+            const accessKey = authStorage.get('accessKey');
+            updateStatus('accessKeyStatus', accessKey ? 'ok' : 'pending',
+                         accessKey ? `Configurada` : 'Não configurada');
+        }
+        
+        async function testPlannerStorage() {
+            try {
+                const info = plannerStorage.getStorageInfo();
+                showResult('📊 Planner Storage Info:\n' + JSON.stringify(info, null, 2), 'info');
+                
+                const allData = plannerStorage.getAll();
+                showResult('📂 Dados no Planner Storage:\n' + JSON.stringify(allData, null, 2), 'info');
+            } catch (error) {
+                showResult('❌ Erro ao testar planner storage: ' + error.message, 'error');
+            }
+        }
+        
+        async function testAuthStorage() {
+            try {
+                const info = authStorage.getStorageInfo();
+                showResult('🔐 Auth Storage Info:\n' + JSON.stringify(info, null, 2), 'info');
+                
+                const token = authStorage.get('authToken');
+                const user = authStorage.get('currentUser');
+                const accessKey = authStorage.get('accessKey');
+                
+                showResult('👤 Dados de Autenticação:\n' + 
+                          `Token: ${token ? 'Presente' : 'Ausente'}\n` +
+                          `Usuário: ${user ? JSON.stringify(user, null, 2) : 'Ausente'}\n` +
+                          `Chave de Acesso: ${accessKey || 'Ausente'}`, 'info');
+            } catch (error) {
+                showResult('❌ Erro ao testar auth storage: ' + error.message, 'error');
+            }
+        }
+        
+        async function simulateLogin() {
+            try {
+                const mockUser = {
+                    id: 1,
+                    name: 'Usuário Teste',
+                    email: 'teste@exemplo.com'
+                };
+                
+                const mockToken = 'mock-jwt-token-' + Date.now();
+                const mockAccessKey = 'A1B2C3D4';
+                
+                // Salvar no auth storage
+                authStorage.set('authToken', mockToken);
+                authStorage.set('currentUser', mockUser);
+                authStorage.set('accessKey', mockAccessKey);
+                
+                showResult('✅ Login simulado com sucesso!\n' +
+                          `Usuário: ${mockUser.name}\n` +
+                          `Email: ${mockUser.email}\n` +
+                          `Chave: ${mockAccessKey}`, 'success');
+                
+                updateStatuses();
+            } catch (error) {
+                showResult('❌ Erro ao simular login: ' + error.message, 'error');
+            }
+        }
+        
+        async function simulateLogout() {
+            try {
+                authStorage.remove('authToken');
+                authStorage.remove('currentUser');
+                authStorage.remove('accessKey');
+                
+                showResult('✅ Logout simulado com sucesso!', 'success');
+                updateStatuses();
+            } catch (error) {
+                showResult('❌ Erro ao simular logout: ' + error.message, 'error');
+            }
+        }
+        
+        async function testPlannerData() {
+            try {
+                // Adicionar dados de teste
+                plannerStorage.set('currentPage', 2);
+                plannerStorage.set('semana1_segunda', 'Estudar Matemática');
+                plannerStorage.set('semana1_terca', 'Estudar Português');
+                plannerStorage.set('progresso_matematica', 75);
+                plannerStorage.set('progresso_portugues', 60);
+                
+                showResult('✅ Dados do planner adicionados com sucesso!', 'success');
+                
+                const data = plannerStorage.getAll();
+                showResult('📝 Dados atuais:\n' + JSON.stringify(data, null, 2), 'info');
+                
+                updateStatuses();
+            } catch (error) {
+                showResult('❌ Erro ao testar dados do planner: ' + error.message, 'error');
+            }
+        }
+        
+        async function testProgressData() {
+            try {
+                // Testar dados de progresso
+                const progressData = {
+                    matematica: 85,
+                    portugues: 70,
+                    historia: 60,
+                    geografia: 75
+                };
+                
+                plannerStorage.set('progressPercentage', 72.5);
+                Object.entries(progressData).forEach(([subject, value]) => {
+                    plannerStorage.set(`progresso_${subject}`, value);
+                });
+                
+                showResult('✅ Dados de progresso salvos!', 'success');
+                updateStatuses();
+            } catch (error) {
+                showResult('❌ Erro ao testar progresso: ' + error.message, 'error');
+            }
+        }
+        
+        async function testAccessKey() {
+            try {
+                const accessKey = authStorage.get('accessKey');
+                if (accessKey) {
+                    showResult(`🔑 Chave de acesso encontrada: ${accessKey}`, 'success');
+                } else {
+                    showResult('⚠️ Nenhuma chave de acesso encontrada', 'warning');
+                }
+            } catch (error) {
+                showResult('❌ Erro ao testar chave de acesso: ' + error.message, 'error');
+            }
+        }
+        
+        async function generateAccessKey() {
+            try {
+                const crypto = window.crypto || window.msCrypto;
+                const array = new Uint8Array(4);
+                crypto.getRandomValues(array);
+                const accessKey = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
+                
+                authStorage.set('accessKey', accessKey);
+                showResult(`🔑 Nova chave de acesso gerada: ${accessKey}`, 'success');
+                updateStatuses();
+            } catch (error) {
+                showResult('❌ Erro ao gerar chave de acesso: ' + error.message, 'error');
+            }
+        }
+        
+        async function runFullTest() {
+            showResult('🚀 Iniciando teste completo de persistência...', 'info');
+            
+            await simulateLogin();
+            await testPlannerData();
+            await testProgressData();
+            await testAccessKey();
+            
+            showResult('✅ Teste completo finalizado!', 'success');
+        }
+        
+        async function clearAllData() {
+            if (confirm('Tem certeza que deseja limpar TODOS os dados? Esta ação não pode ser desfeita.')) {
+                try {
+                    await plannerStorage.clearAll();
+                    await authStorage.clearAll();
+                    
+                    showResult('🗑️ Todos os dados foram limpos!', 'success');
+                    updateStatuses();
+                } catch (error) {
+                    showResult('❌ Erro ao limpar dados: ' + error.message, 'error');
+                }
+            }
+        }
+        
+        async function exportData() {
+            try {
+                const plannerData = plannerStorage.getAll();
+                const authData = {
+                    authToken: authStorage.get('authToken'),
+                    currentUser: authStorage.get('currentUser'),
+                    accessKey: authStorage.get('accessKey')
+                };
+                
+                const exportData = {
+                    timestamp: new Date().toISOString(),
+                    planner: plannerData,
+                    auth: authData
+                };
+                
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `planner-backup-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                showResult('📦 Dados exportados com sucesso!', 'success');
+            } catch (error) {
+                showResult('❌ Erro ao exportar dados: ' + error.message, 'error');
+            }
+        }
+        
+        async function testPersistence() {
+            showResult('🔄 Testando persistência de dados...', 'info');
+            
+            // Salvar dados de teste
+            const testData = {
+                test: 'persistencia',
+                timestamp: new Date().toISOString(),
+                random: Math.random()
+            };
+            
+            plannerStorage.set('persistenceTest', testData);
+            showResult('📝 Dados de teste salvos', 'info');
+            
+            // Aguardar um pouco
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Verificar se os dados persistiram
+            const loadedData = plannerStorage.get('persistenceTest');
+            if (loadedData && JSON.stringify(loadedData) === JSON.stringify(testData)) {
+                showResult('✅ Teste de persistência PASSOU! Os dados foram mantidos.', 'success');
+            } else {
+                showResult('❌ Teste de persistência FALHOU! Os dados não foram mantidos.', 'error');
+            }
+        }
+        
+        // Inicializar ao carregar a página
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Verificar persistência ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const plannerData = plannerStorage.getAll();
+                const authData = {
+                    token: authStorage.get('authToken'),
+                    user: authStorage.get('currentUser'),
+                    accessKey: authStorage.get('accessKey')
+                };
+                
+                const hasData = Object.keys(plannerData).length > 0 || authData.token;
+                
+                if (hasData) {
+                    showResult('🔄 Dados persistidos encontrados após reload! A persistência está funcionando.', 'success');
+                    showResult('📊 Resumo:\n' +
+                              `Planner: ${Object.keys(plannerData).length} itens\n` +
+                              `Auth: ${authData.token ? 'Logado' : 'Não logado'}\n` +
+                              `Chave: ${authData.accessKey ? 'Configurada' : 'Não configurada'}`, 'info');
+                } else {
+                    showResult('📝 Nenhum dado persistido encontrado. Execute "Executar Teste Completo".', 'info');
+                }
+                
+                updateStatuses();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

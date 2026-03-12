@@ -1222,51 +1222,149 @@
         let currentUser = null;
         let authToken = null;
         
-        // Sistema de Autenticação
+        // Sistema de Autenticação (Modificado para IndexedDB)
         class AuthManager {
             constructor() {
-                this.init();
+                this.authStorage = new IndexedDBStorage('PlannerAuthDB', 1);
+                this.initialized = false;
             }
             
-            init() {
-                // Verificar se já está logado
-                const token = localStorage.getItem('plannerToken');
-                const user = localStorage.getItem('plannerUser');
+            async init() {
+                await this.authStorage.init();
+                this.initialized = true;
+                console.log('✅ AuthManager inicializado com IndexedDB');
+            }
+            
+            async saveAuthData(token, user, accessKey = null) {
+                if (!this.initialized) {
+                    await this.init();
+                }
+                
+                // Salvar no IndexedDB
+                this.authStorage.set('authToken', token);
+                this.authStorage.set('currentUser', user);
+                
+                // Salvar chave de acesso se fornecida
+                if (accessKey) {
+                    this.authStorage.set('accessKey', accessKey);
+                    console.log('🔑 Chave de acesso salva no IndexedDB');
+                }
+                
+                // Backup no localStorage por segurança
+                localStorage.setItem('plannerToken', token);
+                localStorage.setItem('plannerUser', JSON.stringify(user));
+                if (accessKey) {
+                    localStorage.setItem('plannerAccessKey', accessKey);
+                }
+                
+                authToken = token;
+                currentUser = user;
+                
+                console.log('✅ Dados de autenticação salvos no IndexedDB');
+            }
+            
+            async loadAuthData() {
+                if (!this.initialized) {
+                    await this.init();
+                }
+                
+                // Tentar carregar do IndexedDB primeiro
+                let token = this.authStorage.get('authToken');
+                let user = this.authStorage.get('currentUser');
+                let accessKey = this.authStorage.get('accessKey');
+                
+                // Se não encontrar no IndexedDB, tentar localStorage (fallback)
+                if (!token) {
+                    token = localStorage.getItem('plannerToken');
+                    const userStr = localStorage.getItem('plannerUser');
+                    if (userStr) {
+                        user = JSON.parse(userStr);
+                        accessKey = localStorage.getItem('plannerAccessKey');
+                        // Migrar para IndexedDB
+                        if (token) {
+                            await this.saveAuthData(token, user, accessKey);
+                        }
+                    }
+                }
                 
                 if (token && user) {
                     authToken = token;
-                    currentUser = JSON.parse(user);
+                    currentUser = user;
+                    // Disponibilizar chave de acesso globalmente
+                    if (accessKey) {
+                        window.userAccessKey = accessKey;
+                    }
                     this.showUserInfo();
-                } else {
-                    this.redirectToLogin();
+                    return true;
                 }
+                
+                return false;
+            }
+            
+            async clearAuthData() {
+                if (!this.initialized) {
+                    await this.init();
+                }
+                
+                // Limpar IndexedDB
+                this.authStorage.remove('authToken');
+                this.authStorage.remove('currentUser');
+                this.authStorage.remove('accessKey');
+                
+                // Limpar localStorage
+                localStorage.removeItem('plannerToken');
+                localStorage.removeItem('plannerUser');
+                localStorage.removeItem('plannerAccessKey');
+                
+                authToken = null;
+                currentUser = null;
+                window.userAccessKey = null;
+                
+                console.log('🗑️ Dados de autenticação removidos do IndexedDB');
+            }
+            
+            init() {
+                // Método síncrono para compatibilidade
+                this.loadAuthData().then(isLoggedIn => {
+                    if (isLoggedIn) {
+                        this.showUserInfo();
+                    } else {
+                        this.redirectToLogin();
+                    }
+                });
+            }
+            
+            showUserInfo() {
+                if (currentUser) {
+                    const userInfo = document.getElementById('userInfo');
+                    const userName = document.getElementById('userName');
+                    const userEmail = document.getElementById('userEmail');
+                    
+                    if (userName) userName.textContent = currentUser.name;
+                    if (userEmail) userEmail.textContent = currentUser.email;
+                    if (userInfo) userInfo.style.display = 'flex';
+                }
+            }
+            
+            hideUserInfo() {
+                const userInfo = document.getElementById('userInfo');
+                if (userInfo) userInfo.style.display = 'none';
             }
             
             redirectToLogin() {
                 window.location.href = '/auth.html';
             }
             
-            showUserInfo() {
-                const userInfo = document.getElementById('userInfo');
-                const userName = document.getElementById('userName');
-                const userEmail = document.getElementById('userEmail');
-                const userAvatar = document.getElementById('userAvatar');
-                
-                if (currentUser && userInfo) {
-                    userName.textContent = currentUser.name;
-                    userEmail.textContent = currentUser.email;
-                    userAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
-                    userInfo.style.display = 'flex';
-                }
-            }
-            
             async logout() {
                 try {
+                    await this.clearAuthData();
+                    this.redirectToLogin();
+                } catch (error) {
+                    console.error('❌ Erro ao fazer logout:', error);
+                    // Fallback para localStorage
                     localStorage.removeItem('plannerToken');
                     localStorage.removeItem('plannerUser');
                     this.redirectToLogin();
-                } catch (error) {
-                    console.error('Erro ao fazer logout:', error);
                 }
             }
         }
@@ -1380,7 +1478,23 @@
         class PlannerStorage {
             constructor() {
                 this.storageKey = 'planner_concurso_data';
-                this.data = this.loadData();
+                this.data = {};
+                this.initialized = false;
+            }
+            
+            async init() {
+                if (window.IndexedDBStorage && IndexedDBStorage.isSupported()) {
+                    this.dbStorage = new IndexedDBStorage('PlannerDB', 1);
+                    await this.dbStorage.init();
+                    this.data = this.dbStorage.getAll();
+                    this.storageMode = 'indexedDB';
+                    console.log('✅ Usando IndexedDB para armazenamento');
+                } else {
+                    this.data = this.loadData();
+                    this.storageMode = 'localStorage';
+                    console.log('⚠️ Usando localStorage para armazenamento');
+                }
+                this.initialized = true;
             }
             
             loadData() {
@@ -1390,7 +1504,11 @@
             }
             
             saveLocalData() {
-                localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+                if (this.storageMode === 'indexedDB') {
+                    this.dbStorage.setAll(this.data);
+                } else {
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+                }
             }
             
             async saveData() {
@@ -1404,22 +1522,36 @@
             }
             
             set(key, value) {
+                if (!this.initialized) {
+                    console.warn('⚠️ Storage não inicializado. Aguardando inicialização...');
+                    setTimeout(() => this.set(key, value), 100);
+                    return;
+                }
+                
                 this.data[key] = value;
                 this.saveData();
             }
             
             get(key) {
+                if (!this.initialized) return null;
                 return this.data[key];
             }
             
             remove(key) {
+                if (!this.initialized) return;
+                
                 delete this.data[key];
                 this.saveData();
             }
             
             async clearAllData() {
                 this.data = {};
-                this.saveLocalData();
+                
+                if (this.storageMode === 'indexedDB') {
+                    await this.dbStorage.clearAll();
+                } else {
+                    localStorage.removeItem(this.storageKey);
+                }
                 
                 // Limpar no backend
                 if (authToken) {
@@ -1431,9 +1563,52 @@
                             }
                         });
                     } catch (error) {
-                        console.error('Erro ao limpar dados do backend:', error);
+                        console.error('❌ Erro ao limpar dados do backend:', error);
                     }
                 }
+            }
+            
+            getAll() {
+                return { ...this.data };
+            }
+            
+            setAll(data) {
+                this.data = { ...data };
+                this.saveLocalData();
+            }
+            
+            // Exportar dados
+            exportData() {
+                return JSON.stringify(this.data, null, 2);
+            }
+            
+            // Importar dados
+            importData(jsonData) {
+                try {
+                    const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+                    this.setAll(data);
+                    console.log('✅ Dados importados com sucesso');
+                    return true;
+                } catch (error) {
+                    console.error('❌ Erro ao importar dados:', error);
+                    return false;
+                }
+            }
+            
+            // Obter informações de armazenamento
+            getStorageInfo() {
+                const info = {
+                    mode: this.storageMode,
+                    itemCount: Object.keys(this.data).length,
+                    initialized: this.initialized
+                };
+
+                if (this.storageMode === 'indexedDB' && this.dbStorage) {
+                    const dbInfo = this.dbStorage.getStorageInfo();
+                    Object.assign(info, dbInfo);
+                }
+
+                return info;
             }
         }
         
@@ -1748,13 +1923,20 @@
         // Inicialização
         let storage, navigation, editableFields, tracker, dataManager;
         
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // Inicializar sistemas de autenticação e sincronização primeiro
             window.authManager = new AuthManager();
             window.syncManager = new SyncManager();
             
-            // Inicializar sistemas existentes
+            // Inicializar storage primeiro
             storage = new PlannerStorage();
+            await storage.init();
+            
+            // Mostrar informações de armazenamento
+            const storageInfo = storage.getStorageInfo();
+            console.log('💾 Storage Info:', storageInfo);
+            
+            // Inicializar sistemas existentes
             navigation = new NavigationManager();
             editableFields = new EditableFields();
             tracker = new TrackerManager();
@@ -1799,5 +1981,6 @@
             console.log('💾 Sistema de persistência ativo');
         });
     </script>
+    <script src="indexeddb-storage.js"></script>
 </body>
 </html>

@@ -306,6 +306,7 @@
         </p>
     </div>
 
+    <script src="indexeddb-storage.js"></script>
     <script>
         const API_BASE = window.location.origin + '/api';
         
@@ -430,8 +431,23 @@
                 const data = await response.json();
                 
                 if (response.ok) {
+                    // Salvar no IndexedDB usando o mesmo sistema do planner
+                    const authStorage = new IndexedDBStorage('PlannerAuthDB', 1);
+                    await authStorage.init();
+                    
+                    authStorage.set('authToken', data.token);
+                    authStorage.set('currentUser', data.user);
+                    
+                    // Salvar chave de acesso se disponível
+                    if (data.accessKey) {
+                        authStorage.set('accessKey', data.accessKey);
+                        localStorage.setItem('plannerAccessKey', data.accessKey);
+                    }
+                    
+                    // Backup no localStorage por segurança
                     localStorage.setItem('plannerToken', data.token);
                     localStorage.setItem('plannerUser', JSON.stringify(data.user));
+                    
                     showSuccess('Login realizado com sucesso! Redirecionando...');
                     
                     setTimeout(() => {
@@ -491,13 +507,29 @@
                 const data = await response.json();
                 
                 if (response.ok) {
+                    // Salvar no IndexedDB usando o mesmo sistema do planner
+                    const authStorage = new IndexedDBStorage('PlannerAuthDB', 1);
+                    await authStorage.init();
+                    
+                    authStorage.set('authToken', data.token);
+                    authStorage.set('currentUser', data.user);
+                    
+                    // Salvar chave de acesso se disponível
+                    if (data.accessKey) {
+                        authStorage.set('accessKey', data.accessKey);
+                        localStorage.setItem('plannerAccessKey', data.accessKey);
+                        showSuccess(`Conta criada com sucesso! Sua chave de acesso: ${data.accessKey}. Redirecionando...`);
+                    } else {
+                        showSuccess('Conta criada com sucesso! Redirecionando...');
+                    }
+                    
+                    // Backup no localStorage por segurança
                     localStorage.setItem('plannerToken', data.token);
                     localStorage.setItem('plannerUser', JSON.stringify(data.user));
-                    showSuccess('Conta criada com sucesso! Redirecionando...');
                     
                     setTimeout(() => {
                         window.location.href = '/index.html';
-                    }, 1500);
+                    }, 2000);
                 } else {
                     showError(data.error || 'Erro ao criar conta');
                 }
@@ -590,11 +622,34 @@
         }
         
         // Verificar se já está logado
-        window.addEventListener('load', () => {
-            const token = localStorage.getItem('plannerToken');
-            if (token) {
-                // Token existe, redirecionar para o planner
+        window.addEventListener('load', async () => {
+            // Tentar carregar do IndexedDB primeiro
+            const authStorage = new IndexedDBStorage('PlannerAuthDB', 1);
+            await authStorage.init();
+            
+            const token = authStorage.get('authToken');
+            const user = authStorage.get('currentUser');
+            
+            if (token && user) {
+                // Token existe no IndexedDB, redirecionar para o planner
                 window.location.href = '/index.html';
+            } else {
+                // Fallback para localStorage
+                const localStorageToken = localStorage.getItem('plannerToken');
+                if (localStorageToken) {
+                    // Migrar dados do localStorage para IndexedDB
+                    const localStorageUser = localStorage.getItem('plannerUser');
+                    const accessKey = localStorage.getItem('plannerAccessKey');
+                    
+                    if (localStorageUser) {
+                        authStorage.set('authToken', localStorageToken);
+                        authStorage.set('currentUser', JSON.parse(localStorageUser));
+                        if (accessKey) {
+                            authStorage.set('accessKey', accessKey);
+                        }
+                        window.location.href = '/index.html';
+                    }
+                }
             }
         });
     </script>

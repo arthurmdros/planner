@@ -79,6 +79,7 @@ const initDb = () => {
                     name TEXT NOT NULL,
                     email TEXT UNIQUE NOT NULL,
                     password TEXT NOT NULL,
+                    access_key TEXT NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
@@ -116,6 +117,7 @@ const initDb = () => {
                     name TEXT NOT NULL,
                     email TEXT UNIQUE NOT NULL,
                     password TEXT NOT NULL,
+                    access_key TEXT NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
@@ -204,10 +206,13 @@ app.post('/api/auth/register', async (req, res) => {
             // Criar hash da senha
             const hashedPassword = await bcrypt.hash(password, 10);
 
-            // Inserir usuário
+            // Inserir usuário com chave de acesso
+            const crypto = require('crypto');
+            const accessKey = crypto.randomBytes(4).toString('hex').toUpperCase();
+            
             db.run(
-                'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-                [name, email, hashedPassword],
+                'INSERT INTO users (name, email, password, access_key) VALUES (?, ?, ?, ?)',
+                [name, email, hashedPassword, accessKey],
                 function(err) {
                     if (err) {
                         console.error('❌ Erro ao criar usuário:', err);
@@ -215,6 +220,7 @@ app.post('/api/auth/register', async (req, res) => {
                     }
 
                     console.log('✅ Usuário criado com sucesso:', email);
+                    console.log('🔑 Chave de acesso gerada:', accessKey);
 
                     // Criar token JWT
                     const token = jwt.sign(
@@ -226,7 +232,8 @@ app.post('/api/auth/register', async (req, res) => {
                     res.status(201).json({
                         message: 'Usuário criado com sucesso',
                         token,
-                        user: { id: this.lastID, name, email }
+                        user: { id: this.lastID, name, email },
+                        accessKey: accessKey // Retornar chave para o usuário guardar
                     });
                 }
             );
@@ -278,27 +285,28 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/forgot-password', async (req, res) => {
     console.log('🔑 Solicitação de recuperação de senha:', req.body.email);
     
-    const { email } = req.body;
+    const { email, accessKey } = req.body;
 
-    if (!email) {
-        return res.status(400).json({ error: 'Email é obrigatório' });
+    if (!email || !accessKey) {
+        return res.status(400).json({ error: 'Email e chave de acesso são obrigatórios' });
     }
 
     try {
-        // Verificar se usuário existe
-        db.get('SELECT id, name FROM users WHERE email = ?', [email], async (err, user) => {
+        // Verificar se usuário existe e validar chave de acesso
+        db.get('SELECT id, name FROM users WHERE email = ? AND access_key = ?', [email, accessKey], async (err, user) => {
             if (err) {
                 console.error('❌ Erro no banco de dados:', err);
                 return res.status(500).json({ error: 'Erro no banco de dados' });
             }
 
             if (!user) {
-                // Por segurança, não informamos que o email não existe
-                console.log('⚠️ Email não encontrado, mas simulando envio:', email);
-                return res.json({ message: 'Se o email existir, um link de recuperação foi enviado' });
+                console.log('⚠️ Email ou chave de acesso incorretos:', email);
+                return res.status(400).json({ error: 'Email ou chave de acesso incorretos' });
             }
 
-            // Gerar token de reset
+            console.log('✅ Usuário validado:', email);
+
+            // Gerar token temporário para reset de senha
             const crypto = require('crypto');
             const resetToken = crypto.randomBytes(32).toString('hex');
             const expiresAt = new Date(Date.now() + 3600000); // 1 hora
@@ -315,7 +323,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
                     console.log('✅ Token de recuperação gerado para:', email);
 
-                    // Enviar email real
+                    // Enviar email com token
                     const resetLink = `${req.protocol}://${req.get('host')}/reset-password.html?token=${resetToken}`;
                     
                     try {
@@ -324,7 +332,6 @@ app.post('/api/auth/forgot-password', async (req, res) => {
                         
                         res.json({ 
                             message: 'Link de recuperação enviado para seu email',
-                            // Em desenvolvimento, retornar informações de debug
                             debug: process.env.NODE_ENV !== 'production' ? {
                                 link: resetLink,
                                 etherealUrl: process.env.NODE_ENV !== 'production' ? 'https://ethereal.email/messages' : undefined
@@ -336,7 +343,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
                         console.log('🔗 Link de recuperação (fallback):', resetLink);
                         
                         res.json({ 
-                            message: 'Link de recuperação gerado. Verifique seu email ou o console para testes.',
+                            message: 'Link de recuperação gerado. Verifique seu email ou o console.',
                             debug: process.env.NODE_ENV !== 'production' ? {
                                 link: resetLink,
                                 note: 'Email não enviado. Verifique o console.'
@@ -428,10 +435,10 @@ async function sendResetEmail(email, userName, resetLink) {
 
 // Reset de senha
 app.post('/api/auth/reset-password', async (req, res) => {
-    const { token, newPassword } = req.body;
+    const { email, accessKey, newPassword } = req.body;
 
-    if (!token || !newPassword) {
-        return res.status(400).json({ error: 'Token e nova senha são obrigatórios' });
+    if (!email || !accessKey || !newPassword) {
+        return res.status(400).json({ error: 'Email, chave de acesso e nova senha são obrigatórios' });
     }
 
     if (newPassword.length < 6) {
@@ -439,17 +446,17 @@ app.post('/api/auth/reset-password', async (req, res) => {
     }
 
     try {
-        // Verificar token válido
+        // Verificar se usuário existe e validar chave de acesso
         db.get(
-            'SELECT pr.user_id, u.email FROM password_resets pr JOIN users u ON pr.user_id = u.id WHERE pr.token = ? AND pr.used = FALSE AND pr.expires_at > ?',
-            [token, new Date().toISOString()],
-            async (err, reset) => {
+            'SELECT id, email FROM users WHERE email = ? AND access_key = ?',
+            [email, accessKey],
+            async (err, user) => {
                 if (err) {
                     return res.status(500).json({ error: 'Erro no banco de dados' });
                 }
 
-                if (!reset) {
-                    return res.status(400).json({ error: 'Token inválido ou expirado' });
+                if (!user) {
+                    return res.status(400).json({ error: 'Email ou chave de acesso incorretos' });
                 }
 
                 // Hash da nova senha
@@ -458,19 +465,13 @@ app.post('/api/auth/reset-password', async (req, res) => {
                 // Atualizar senha
                 db.run(
                     'UPDATE users SET password = ? WHERE id = ?',
-                    [hashedPassword, reset.user_id],
+                    [hashedPassword, user.id],
                     function(err) {
                         if (err) {
                             return res.status(500).json({ error: 'Erro ao atualizar senha' });
                         }
 
-                        // Marcar token como usado
-                        db.run(
-                            'UPDATE password_resets SET used = TRUE WHERE token = ?',
-                            [token]
-                        );
-
-                        console.log('✅ Senha redefinida com sucesso para:', reset.email);
+                        console.log('✅ Senha redefinida com sucesso para:', user.email);
 
                         res.json({ message: 'Senha redefinida com sucesso' });
                     }
