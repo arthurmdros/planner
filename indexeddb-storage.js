@@ -9,7 +9,7 @@ class IndexedDBStorage {
     }
 
     async init() {
-        return new Promise(async (resolve, reject) => {
+        return new Promise((resolve, reject) => {
             // Verificar suporte ao IndexedDB primeiro
             if (!IndexedDBStorage.isSupported()) {
                 console.error('❌ IndexedDB não é suportado neste navegador');
@@ -19,15 +19,6 @@ class IndexedDBStorage {
             }
 
             console.log('🔄 Inicializando IndexedDB...');
-            
-            // Garantir que o banco de dados exista
-            const dbEnsured = await this.ensureDatabase();
-            if (!dbEnsured) {
-                console.error('❌ Não foi possível garantir o banco de dados');
-                this.useLocalStorageFallback();
-                resolve();
-                return;
-            }
             
             const request = indexedDB.open(this.databaseName, this.version);
 
@@ -42,9 +33,9 @@ class IndexedDBStorage {
                 this.db = request.result;
                 console.log('✅ IndexedDB aberto/criado com sucesso');
                 
-                // Verificar se o object store existe, se não, tentar criar
+                // Verificar se o object store existe
                 if (!this.db.objectStoreNames.contains('planner_data')) {
-                    console.log('⚠️ Object store não encontrado, tentando upgrade...');
+                    console.log('⚠️ Object store não encontrado, tentando criar...');
                     // Tentar fazer upgrade para criar o object store
                     this.upgradeDatabase().then(() => {
                         this.loadData().then(resolve);
@@ -123,42 +114,49 @@ class IndexedDBStorage {
     }
 
     async loadData() {
-        if (this.storageMode === 'localStorage') {
-            const stored = localStorage.getItem(this.storageKey);
-            this.data = stored ? JSON.parse(stored) : {};
-            return;
-        }
+        return new Promise((resolve) => {
+            if (this.storageMode === 'localStorage') {
+                const stored = localStorage.getItem(this.storageKey);
+                this.data = stored ? JSON.parse(stored) : {};
+                resolve();
+                return;
+            }
 
-        if (!this.db) {
-            const stored = localStorage.getItem(this.storageKey);
-            this.data = stored ? JSON.parse(stored) : {};
-            return;
-        }
+            if (!this.db) {
+                const stored = localStorage.getItem(this.storageKey);
+                this.data = stored ? JSON.parse(stored) : {};
+                resolve();
+                return;
+            }
 
-        try {
-            const transaction = this.db.transaction(['planner_data'], 'readonly');
-            const objectStore = transaction.objectStore('planner_data');
-            const request = objectStore.getAll();
+            try {
+                const transaction = this.db.transaction(['planner_data'], 'readonly');
+                const objectStore = transaction.objectStore('planner_data');
+                const request = objectStore.getAll();
 
-            request.onsuccess = () => {
-                const records = request.result;
-                this.data = {};
-                
-                records.forEach(record => {
-                    this.data[record.key] = record.value;
-                });
+                request.onsuccess = () => {
+                    const records = request.result;
+                    this.data = {};
+                    
+                    records.forEach(record => {
+                        this.data[record.key] = record.value;
+                    });
 
-                console.log('✅ Dados carregados do IndexedDB:', Object.keys(this.data).length, 'itens');
-            };
+                    console.log('✅ Dados carregados do IndexedDB:', Object.keys(this.data).length, 'itens');
+                    resolve();
+                };
 
-            request.onerror = () => {
-                console.error('❌ Erro ao carregar dados do IndexedDB:', request.error);
+                request.onerror = () => {
+                    console.error('❌ Erro ao carregar dados do IndexedDB:', request.error);
+                    this.loadLocalStorageFallback();
+                    resolve();
+                };
+            } catch (error) {
+                console.error('❌ Erro ao acessar IndexedDB:', error);
                 this.loadLocalStorageFallback();
-            };
-        } catch (error) {
-            console.error('❌ Erro ao acessar IndexedDB:', error);
-            this.loadLocalStorageFallback();
-        }
+                resolve();
+            }
+        });
     }
 
     loadLocalStorageFallback() {

@@ -110,6 +110,11 @@
         
         .btn-secondary:hover {
             background: #e5e7eb;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary:active {
+            transform: translateY(0);
         }
         
         .error {
@@ -286,6 +291,17 @@
                 </div>
             </div>
             
+            <div class="form-group">
+                <label for="accessKey">Chave de acesso (opcional)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="accessKey" placeholder="Digite ou gere uma chave" maxlength="8" style="text-transform: uppercase; flex: 1;">
+                    <button type="button" class="btn-secondary" onclick="generateAccessKey()" style="padding: 12px 20px; white-space: nowrap;">🔑 Gerar SHA-256</button>
+                </div>
+                <small style="color: #64748b; font-size: 12px; margin-top: 5px; display: block;">
+                    A chave de acesso é usada para recuperação de senha. Guarde-a em local seguro.
+                </small>
+            </div>
+            
             <button type="submit" class="btn btn-primary">Criar conta</button>
         </form>
         
@@ -359,20 +375,24 @@
             button.textContent = type === 'password' ? '👁️' : '🙈';
         }
         
-        // Função para mostrar formulário de esqueceu senha
-        function showForgotPassword() {
+        // Função para esconder todos os formulários
+        function hideAllForms() {
             loginForm.style.display = 'none';
             registerForm.style.display = 'none';
+            forgotForm.style.display = 'none';
             resetForm.style.display = 'none';
+        }
+        
+        // Função para mostrar formulário de esqueceu senha
+        function showForgotPassword() {
+            hideAllForms();
             forgotForm.style.display = 'block';
             hideMessages();
         }
         
         // Função para mostrar formulário de reset de senha
         function showResetPasswordForm(email, accessKey) {
-            loginForm.style.display = 'none';
-            registerForm.style.display = 'none';
-            forgotForm.style.display = 'none';
+            hideAllForms();
             resetForm.style.display = 'block';
             
             // Salvar dados validados para usar depois
@@ -384,10 +404,8 @@
         
         // Função para voltar ao login
         function backToLogin() {
-            forgotForm.style.display = 'none';
-            resetForm.style.display = 'none';
+            hideAllForms();
             loginForm.style.display = 'block';
-            registerForm.style.display = 'none';
             hideMessages();
         }
         
@@ -396,13 +414,13 @@
             e.preventDefault();
             
             if (loginForm.style.display !== 'none') {
-                loginForm.style.display = 'none';
+                hideAllForms();
                 registerForm.style.display = 'block';
                 toggleText.textContent = 'Já tem uma conta?';
                 toggleForm.textContent = 'Entre';
             } else {
+                hideAllForms();
                 loginForm.style.display = 'block';
-                registerForm.style.display = 'none';
                 toggleText.textContent = 'Não tem uma conta?';
                 toggleForm.textContent = 'Cadastre-se';
             }
@@ -442,6 +460,32 @@
                 } else {
                     strengthElement.classList.add('strength-strong');
                 }
+            }
+        }
+        
+        // Função para gerar chave de acesso SHA-256
+        async function generateAccessKey() {
+            try {
+                // Gerar string aleatória baseada em timestamp e valores aleatórios
+                const randomString = Date.now().toString() + Math.random().toString(36) + 'planner_access_key';
+                
+                // Gerar hash SHA-256
+                const encoder = new TextEncoder();
+                const data = encoder.encode(randomString);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                
+                // Pegar os primeiros 8 caracteres e converter para maiúsculas
+                const accessKey = hashHex.substring(0, 8).toUpperCase();
+                
+                // Preencher o campo
+                document.getElementById('accessKey').value = accessKey;
+                
+                showSuccess('Chave de acesso gerada: ' + accessKey);
+            } catch (error) {
+                console.error('Erro ao gerar chave de acesso:', error);
+                showError('Erro ao gerar chave de acesso. Tente novamente.');
             }
         }
         
@@ -528,6 +572,7 @@
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
+            const accessKey = document.getElementById('accessKey').value.toUpperCase();
             
             if (!name || name.trim().length < 3) {
                 showError('O nome deve ter pelo menos 3 caracteres');
@@ -558,7 +603,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ name, email, password })
+                    body: JSON.stringify({ name, email, password, accessKey })
                 });
                 
                 const data = await response.json();
@@ -720,23 +765,14 @@
         
         function showLoading() {
             loading.style.display = 'block';
-            loginForm.style.display = 'none';
-            registerForm.style.display = 'none';
-            forgotForm.style.display = 'none';
-            resetForm.style.display = 'none';
+            hideAllForms();
         }
         
         function hideLoading() {
             loading.style.display = 'none';
-            if (registerForm.style.display === 'none' && forgotForm.style.display === 'none' && resetForm.style.display === 'none') {
-                loginForm.style.display = 'block';
-            } else if (registerForm.style.display !== 'none') {
-                registerForm.style.display = 'block';
-            } else if (forgotForm.style.display !== 'none') {
-                forgotForm.style.display = 'block';
-            } else if (resetForm.style.display !== 'none') {
-                resetForm.style.display = 'block';
-            }
+            // Por padrão, volta ao login quando esconde o loading
+            hideAllForms();
+            loginForm.style.display = 'block';
         }
         
         // Verificar se já está logado

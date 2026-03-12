@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico IndexedDB Simples</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnóstico IndexedDB Simples</h1>
+    
+    <div class="container">
+        <h2>Testes Básicos</h2>
+        <button onclick="testBasicSupport()">1. Testar Suporte IndexedDB</button>
+        <button onclick="testBasicIndexedDB()">2. Testar IndexedDB Nativo</button>
+        <button onclick="testIndexedDBStorage()">3. Testar IndexedDBStorage</button>
+        <button onclick="clearResults()">Limpar Resultados</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script src="indexeddb-storage.js"></script>
+    <script>
+        function showResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // 1. Testar suporte básico
+        function testBasicSupport() {
+            showResult('🔍 Testando suporte IndexedDB...', 'info');
+            
+            if ('indexedDB' in window) {
+                showResult('✅ IndexedDB é suportado', 'success');
+                
+                // Verificar funcionalidade
+                try {
+                    const testDB = indexedDB.open('test-support');
+                    testDB.onsuccess = () => {
+                        showResult('✅ IndexedDB está funcional', 'success');
+                        testDB.result.close();
+                        indexedDB.deleteDatabase('test-support');
+                    };
+                    testDB.onerror = () => {
+                        showResult('❌ IndexedDB não funcional: ' + testDB.error, 'error');
+                    };
+                } catch (error) {
+                    showResult('❌ Erro ao testar IndexedDB: ' + error.message, 'error');
+                }
+            } else {
+                showResult('❌ IndexedDB não é suportado', 'error');
+            }
+        }
+        
+        // 2. Testar IndexedDB nativo
+        function testBasicIndexedDB() {
+            showResult('🔍 Testando IndexedDB nativo...', 'info');
+            
+            try {
+                const request = indexedDB.open('TestBasicDB', 1);
+                
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    const store = db.createObjectStore('data', { keyPath: 'id' });
+                    showResult('✅ Object store criado', 'success');
+                };
+                
+                request.onsuccess = () => {
+                    const db = request.result;
+                    showResult('✅ Banco aberto com sucesso', 'success');
+                    
+                    // Testar escrita
+                    const transaction = db.transaction(['data'], 'readwrite');
+                    const store = transaction.objectStore('data');
+                    
+                    const addRequest = store.add({ id: 1, message: 'Hello IndexedDB!', timestamp: Date.now() });
+                    
+                    addRequest.onsuccess = () => {
+                        showResult('✅ Dados escritos com sucesso', 'success');
+                        
+                        // Testar leitura
+                        const getRequest = store.get(1);
+                        getRequest.onsuccess = () => {
+                            showResult('✅ Dados lidos: ' + JSON.stringify(getRequest.result), 'success');
+                            db.close();
+                            indexedDB.deleteDatabase('TestBasicDB');
+                        };
+                    };
+                    
+                    addRequest.onerror = () => {
+                        showResult('❌ Erro ao escrever: ' + addRequest.error, 'error');
+                        db.close();
+                    };
+                };
+                
+                request.onerror = () => {
+                    showResult('❌ Erro ao abrir banco: ' + request.error, 'error');
+                };
+                
+            } catch (error) {
+                showResult('❌ Erro no teste: ' + error.message, 'error');
+            }
+        }
+        
+        // 3. Testar IndexedDBStorage
+        async function testIndexedDBStorage() {
+            showResult('🔍 Testando IndexedDBStorage...', 'info');
+            
+            try {
+                if (!window.IndexedDBStorage) {
+                    showResult('❌ IndexedDBStorage não carregado', 'error');
+                    return;
+                }
+                
+                showResult('✅ IndexedDBStorage disponível', 'success');
+                
+                const storage = new IndexedDBStorage('TestStorageDB', 1);
+                showResult('✅ Instância criada', 'success');
+                
+                await storage.init();
+                showResult('✅ Storage inicializado', 'success');
+                
+                // Testar informações
+                const info = storage.getStorageInfo();
+                showResult('📊 Storage Info: ' + JSON.stringify(info, null, 2), 'info');
+                
+                // Testar CRUD
+                storage.set('test', { message: 'Hello World!', timestamp: Date.now() });
+                showResult('✅ Dados salvos', 'success');
+                
+                const data = storage.get('test');
+                showResult('✅ Dados lidos: ' + JSON.stringify(data), 'success');
+                
+                const allData = storage.getAll();
+                showResult('✅ Todos os dados: ' + JSON.stringify(allData), 'info');
+                
+                // Limpar
+                storage.remove('test');
+                showResult('✅ Dados removidos', 'success');
+                
+                showResult('🎉 Todos os testes passaram!', 'success');
+                
+            } catch (error) {
+                showResult('❌ Erro no teste IndexedDBStorage: ' + error.message, 'error');
+                console.error('Erro completo:', error);
+            }
+        }
+        
+        // Inicialização
+        window.addEventListener('load', () => {
+            showResult('🚀 Página carregada', 'info');
+        });
+    </script>
+</body>
+</html>

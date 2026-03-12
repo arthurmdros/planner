@@ -1323,9 +1323,8 @@
                 console.log('🗑️ Dados de autenticação removidos do IndexedDB');
             }
             
-            init() {
-                // Método síncrono para compatibilidade
-                this.loadAuthData().then(isLoggedIn => {
+            async init() {
+                await this.loadAuthData().then(isLoggedIn => {
                     if (isLoggedIn) {
                         this.showUserInfo();
                         // Continuar com a inicialização normal do app
@@ -2028,6 +2027,9 @@
             // Inicializar sistemas de autenticação e sincronização primeiro
             window.authManager = new AuthManager();
             window.syncManager = new SyncManager();
+            
+            // Inicializar o AuthManager
+            window.authManager.init();
             
             // Aguardar usuário estar autenticado antes de inicializar o app
             window.addEventListener('userAuthenticated', async function() {
