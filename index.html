@@ -1377,24 +1377,34 @@
             }
         }
         
-        // Sistema de Sincronização com Backend
+        // Sistema de Sincronização com Backend (Modificado para IndexedDB)
         class SyncManager {
             constructor() {
                 this.isOnline = navigator.onLine;
                 this.syncQueue = [];
                 this.syncInProgress = false;
+                this.apiCache = null;
                 this.init();
             }
             
-            init() {
+            async init() {
+                // Inicializar API Cache
+                if (window.APICache) {
+                    this.apiCache = new APICache('PlannerAPICache', 1);
+                    await this.apiCache.init();
+                    console.log('✅ API Cache inicializado');
+                }
+
                 // Listener de conexão
                 window.addEventListener('online', () => {
                     this.isOnline = true;
+                    console.log('🌐 Conexão restaurada');
                     this.processSyncQueue();
                 });
                 
                 window.addEventListener('offline', () => {
                     this.isOnline = false;
+                    console.log('📴 Modo offline ativado');
                 });
                 
                 // Auto-sync a cada 30 segundos
@@ -1403,6 +1413,13 @@
                         this.syncData();
                     }
                 }, 30000);
+
+                // Limpar cache expirado a cada 10 minutos
+                setInterval(() => {
+                    if (this.apiCache) {
+                        this.apiCache.cleanExpiredCache();
+                    }
+                }, 600000);
             }
             
             showSyncStatus(message, type = 'syncing') {
@@ -1428,30 +1445,65 @@
                 this.showSyncStatus('Sincronizando...', 'syncing');
                 
                 try {
-                    const response = await fetch(`${API_BASE}/planner/data`, {
-                        headers: {
-                            'Authorization': `Bearer ${authToken}`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const result = await response.json();
+                    // SEMPRE usar IndexedDB primeiro - online ou offline
+                    let data = null;
+                    if (this.apiCache) {
+                        data = await this.apiCache.getCache('/planner/data', 'GET');
+                    }
+
+                    // Se não tiver cache, buscar da API (se online)
+                    if (!data && this.isOnline) {
+                        const response = await fetch(`${API_BASE}/planner/data`, {
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
                         
-                        // Mesclar dados do backend com local
-                        if (result.data && Object.keys(result.data).length > 0) {
-                            const localData = storage.data;
-                            const mergedData = { ...localData, ...result.data };
-                            storage.data = mergedData;
-                            storage.saveLocalData();
+                        if (response.ok) {
+                            const apiData = await response.json();
+                            data = apiData.data;
+                            
+                            // Salvar no cache IndexedDB
+                            if (this.apiCache && data) {
+                                await this.apiCache.setCache('/planner/data', data, 'GET', {}, 300000); // 5 minutos
+                                await this.apiCache.setUserData('planner_data', data);
+                            }
+                            
                             this.showSyncStatus('Dados sincronizados', 'success');
+                        } else {
+                            throw new Error('Erro ao sincronizar dados');
+                        }
+                    } else if (!data) {
+                        // Offline e sem cache - usar dados do IndexedDB local
+                        if (storage && storage.getAll) {
+                            data = storage.getAll();
+                            this.showSyncStatus('Usando dados locais (offline)', 'offline');
                         }
                     } else {
-                        throw new Error('Erro ao buscar dados do servidor');
+                        // Usar dados do cache IndexedDB
+                        this.showSyncStatus('Usando cache IndexedDB', 'offline');
                     }
+                    
+                    // SEMPRE sincronizar com IndexedDB local
+                    if (data && storage && storage.setAll) {
+                        await storage.setAll(data);
+                    }
+                    
                 } catch (error) {
-                    console.error('Erro na sincronização:', error);
-                    this.showSyncStatus('Erro na sincronização', 'error');
+                    console.error('❌ Erro na sincronização:', error);
+                    
+                    // Tentar usar dados do IndexedDB local
+                    if (storage && storage.getAll) {
+                        const localData = storage.getAll();
+                        if (Object.keys(localData).length > 0) {
+                            this.showSyncStatus('Usando dados locais (erro)', 'offline');
+                        } else {
+                            this.showSyncStatus('Nenhum dado disponível', 'error');
+                        }
+                    } else {
+                        this.showSyncStatus('Erro de sincronização', 'error');
+                    }
                 } finally {
                     this.syncInProgress = false;
                 }
@@ -1460,6 +1512,27 @@
             async saveToBackend(data) {
                 if (!authToken) return;
                 
+                // SEMPRE salvar no IndexedDB local primeiro
+                if (storage && storage.setAll) {
+                    await storage.setAll(data);
+                }
+                
+                // Se estiver offline, adicionar à fila IndexedDB
+                if (!this.isOnline && this.apiCache) {
+                    await this.apiCache.addToOfflineQueue({
+                        method: 'POST',
+                        endpoint: '/planner/data',
+                        data: { data },
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    this.showSyncStatus('Salvo no IndexedDB (offline)', 'offline');
+                    return;
+                }
+                
+                // Se online, tentar sincronizar com API
                 try {
                     const response = await fetch(`${API_BASE}/planner/data`, {
                         method: 'POST',
@@ -1471,118 +1544,136 @@
                     });
                     
                     if (response.ok) {
-                        this.showSyncStatus('Dados salvos na nuvem', 'success');
+                        // Atualizar cache IndexedDB após salvar com sucesso
+                        if (this.apiCache) {
+                            await this.apiCache.setCache('/planner/data', data, 'GET', {}, 300000);
+                            await this.apiCache.setUserData('planner_data', data);
+                        }
+                        this.showSyncStatus('Dados salvos na nuvem e IndexedDB', 'success');
                     } else {
                         throw new Error('Erro ao salvar no servidor');
                     }
                 } catch (error) {
                     console.error('Erro ao salvar no backend:', error);
-                    this.showSyncStatus('Erro ao salvar na nuvem', 'error');
+                    
+                    // Adicionar à fila offline IndexedDB em caso de erro
+                    if (this.apiCache) {
+                        await this.apiCache.addToOfflineQueue({
+                            method: 'POST',
+                            endpoint: '/planner/data',
+                            data: { data },
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                    }
+                    
+                    this.showSyncStatus('Salvo no IndexedDB (erro de conexão)', 'offline');
+                }
+            }
+            
+            async processSyncQueue() {
+                if (!this.apiCache || !this.isOnline) return;
+                
+                try {
+                    const queue = await this.apiCache.getOfflineQueue();
+                    
+                    for (const operation of queue) {
+                        try {
+                            const response = await fetch(`${API_BASE}${operation.endpoint}`, {
+                                method: operation.method,
+                                headers: operation.headers,
+                                body: JSON.stringify(operation.data)
+                            });
+                            
+                            if (response.ok) {
+                                await this.apiCache.removeFromOfflineQueue(operation.id);
+                                console.log(`✅ Operação sincronizada: ${operation.method} ${operation.endpoint}`);
+                            } else {
+                                console.error(`❌ Erro ao sincronizar operação: ${operation.method} ${operation.endpoint}`);
+                            }
+                        } catch (error) {
+                            console.error(`❌ Erro ao processar operação da fila:`, error);
+                        }
+                    }
+                    
+                    if (queue.length > 0) {
+                        this.showSyncStatus(`${queue.length} operações sincronizadas`, 'success');
+                    }
+                } catch (error) {
+                    console.error('❌ Erro ao processar fila de sincronização:', error);
                 }
             }
         }
         
-        // Sistema de Persistência de Dados (Modificado)
+        // Sistema de Persistência de Dados (100% IndexedDB)
         class PlannerStorage {
             constructor() {
                 this.storageKey = 'planner_concurso_data';
                 this.data = {};
                 this.initialized = false;
+                this.dbStorage = null;
             }
             
             async init() {
-                if (window.IndexedDBStorage && IndexedDBStorage.isSupported()) {
-                    this.dbStorage = new IndexedDBStorage('PlannerDB', 1);
-                    await this.dbStorage.init();
-                    this.data = this.dbStorage.getAll();
-                    this.storageMode = 'indexedDB';
-                    console.log('✅ Usando IndexedDB para armazenamento');
-                } else {
-                    this.data = this.loadData();
-                    this.storageMode = 'localStorage';
-                    console.log('⚠️ Usando localStorage para armazenamento');
+                // Usar SEMPRE IndexedDB - não há fallback para localStorage
+                if (!window.IndexedDBStorage) {
+                    throw new Error('IndexedDB não está disponível. O aplicativo requer IndexedDB para funcionar.');
                 }
+                
+                if (!IndexedDBStorage.isSupported()) {
+                    throw new Error('Seu navegador não suporta IndexedDB. Por favor, use um navegador moderno.');
+                }
+                
+                this.dbStorage = new IndexedDBStorage('PlannerDB', 1);
+                await this.dbStorage.init();
+                this.data = this.dbStorage.getAll();
+                this.storageMode = 'indexedDB';
                 this.initialized = true;
-            }
-            
-            loadData() {
-                // Tentar carregar do localStorage primeiro (offline)
-                const stored = localStorage.getItem(this.storageKey);
-                return stored ? JSON.parse(stored) : {};
-            }
-            
-            saveLocalData() {
-                if (this.storageMode === 'indexedDB') {
-                    this.dbStorage.setAll(this.data);
-                } else {
-                    localStorage.setItem(this.storageKey, JSON.stringify(this.data));
-                }
-            }
-            
-            async saveData() {
-                // Salvar localmente imediatamente
-                this.saveLocalData();
                 
-                // Salvar no backend se estiver online
-                if (window.syncManager && window.syncManager.isOnline) {
-                    await window.syncManager.saveToBackend(this.data);
-                }
+                console.log('✅ PlannerStorage inicializado com IndexedDB');
+                console.log('💾 Dados carregados:', Object.keys(this.data).length, 'itens');
             }
             
-            set(key, value) {
-                if (!this.initialized) {
-                    console.warn('⚠️ Storage não inicializado. Aguardando inicialização...');
-                    setTimeout(() => this.set(key, value), 100);
-                    return;
-                }
-                
-                this.data[key] = value;
-                this.saveData();
-            }
+            // Métodos diretos do IndexedDB (sem localStorage)
             
             get(key) {
-                if (!this.initialized) return null;
-                return this.data[key];
+                if (!this.initialized || !this.dbStorage) return null;
+                return this.dbStorage.get(key);
             }
             
-            remove(key) {
-                if (!this.initialized) return;
-                
+            async set(key, value) {
+                if (!this.initialized || !this.dbStorage) return;
+                this.dbStorage.set(key, value);
+                // Atualizar cache local
+                this.data[key] = value;
+            }
+            
+            async remove(key) {
+                if (!this.initialized || !this.dbStorage) return;
+                this.dbStorage.remove(key);
+                // Remover do cache local
                 delete this.data[key];
-                this.saveData();
             }
             
-            async clearAllData() {
-                this.data = {};
-                
-                if (this.storageMode === 'indexedDB') {
-                    await this.dbStorage.clearAll();
-                } else {
-                    localStorage.removeItem(this.storageKey);
-                }
-                
-                // Limpar no backend
-                if (authToken) {
-                    try {
-                        await fetch(`${API_BASE}/planner/data`, {
-                            method: 'DELETE',
-                            headers: {
-                                'Authorization': `Bearer ${authToken}`
-                            }
-                        });
-                    } catch (error) {
-                        console.error('❌ Erro ao limpar dados do backend:', error);
-                    }
-                }
+            async setAll(data) {
+                if (!this.initialized || !this.dbStorage) return;
+                this.dbStorage.setAll(data);
+                // Atualizar cache local
+                this.data = { ...data };
             }
             
             getAll() {
-                return { ...this.data };
+                if (!this.initialized || !this.dbStorage) return {};
+                return this.dbStorage.getAll();
             }
             
-            setAll(data) {
-                this.data = { ...data };
-                this.saveLocalData();
+            async clearAll() {
+                if (!this.initialized || !this.dbStorage) return;
+                this.dbStorage.clearAll();
+                // Limpar cache local
+                this.data = {};
             }
             
             // Exportar dados
@@ -1591,11 +1682,11 @@
             }
             
             // Importar dados
-            importData(jsonData) {
+            async importData(jsonData) {
                 try {
                     const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
-                    this.setAll(data);
-                    console.log('✅ Dados importados com sucesso');
+                    await this.setAll(data);
+                    console.log('✅ Dados importados com sucesso para IndexedDB');
                     return true;
                 } catch (error) {
                     console.error('❌ Erro ao importar dados:', error);
@@ -1603,20 +1694,16 @@
                 }
             }
             
-            // Obter informações de armazenamento
+            // Obter informações do storage
             getStorageInfo() {
-                const info = {
-                    mode: this.storageMode,
+                return {
+                    mode: 'indexedDB',
                     itemCount: Object.keys(this.data).length,
+                    supported: IndexedDBStorage.isSupported(),
+                    dbName: this.dbStorage ? this.dbStorage.databaseName : null,
+                    version: this.dbStorage ? this.dbStorage.version : null,
                     initialized: this.initialized
                 };
-
-                if (this.storageMode === 'indexedDB' && this.dbStorage) {
-                    const dbInfo = this.dbStorage.getStorageInfo();
-                    Object.assign(info, dbInfo);
-                }
-
-                return info;
             }
         }
         
@@ -1993,5 +2080,6 @@
         });    
     </script>
     <script src="indexeddb-storage.js"></script>
+    <script src="api-cache.js"></script>
 </body>
 </html>
